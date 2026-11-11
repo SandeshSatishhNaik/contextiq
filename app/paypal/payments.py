@@ -78,7 +78,7 @@ def capture_safely(db: Session, case: Case, max_attempts: int = 3) -> dict:
                              {"resolution": "capture_already_completed", "capture_id": state["capture"]["id"]})
                 return {"ok": True, "capture_id": case.paypal_capture_id, "trace": trace, "healed": True}
             trace.append(f"PayPal shows order {state['order_status']} and no capture → retry with the same request id")
-            time.sleep(0.2 * attempt)
+            time.sleep(0.2 * 2 ** (attempt - 1))  # exponential backoff
         except PayPalError as exc:
             issues = [d.get("issue") for d in (exc.body or {}).get("details", [])] if isinstance(exc.body, dict) else []
             if "ORDER_ALREADY_CAPTURED" in issues:
@@ -110,7 +110,7 @@ def refund_safely(db: Session, case: Case, amount: float | None = None, reason: 
                                     f"{refund['amount']['currency_code']}", content=refund)
             return {"ok": True, "refund": refund, "attempts": attempt}
         except TRANSIENT:
-            time.sleep(0.2 * attempt)  # same request id → PayPal dedupes
+            time.sleep(0.2 * 2 ** (attempt - 1))  # exponential backoff; same request id → PayPal dedupes
         except PayPalError as exc:
             return {"ok": False, "error": exc.body}
     return {"ok": False, "error": "refund unresolved after retries"}

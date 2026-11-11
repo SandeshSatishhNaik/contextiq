@@ -293,7 +293,7 @@ def execute_resolution(db: Session, case: Case, action: str, issue: str = "", us
         for o in db.scalars(select(Obligation).where(Obligation.case_id == case.id, Obligation.kind == "replacement_window")).all():
             o.status = "done"
         db.commit()
-        return {"ok": True, "action": "swap", "message": f"Free replacement swap initiated with {case.merchant}. Merchant notified to dispatch replacement unit."}
+        return {"ok": True, "action": "swap", "message": f"Replacement request recorded for {case.merchant}. The merchant still has to confirm it; it is saved in your briefcase as your claim."}
 
     elif action in ("warranty_claim", "warranty"):
         ev = bc.add_evidence(db, case, kind="warranty_claim", source="buyer", provenance="claimed",
@@ -303,15 +303,20 @@ def execute_resolution(db: Session, case: Case, action: str, issue: str = "", us
         for o in db.scalars(select(Obligation).where(Obligation.case_id == case.id, Obligation.kind == "warranty")).all():
             o.status = "in_progress"
         db.commit()
-        return {"ok": True, "action": "warranty", "message": f"Warranty repair claim submitted to {case.merchant}. Service ticket anchored in your briefcase."}
+        return {"ok": True, "action": "warranty", "message": f"Warranty claim recorded for {case.merchant}. The merchant still has to confirm it; it is saved in your briefcase as your claim."}
 
     elif action in ("escalate_to_paypal_protection", "paypal_dispute"):
-        ev = bc.add_evidence(db, case, kind="paypal_dispute", source="buyer", provenance="verified",
-                             summary=f"Claim escalated to PayPal Purchase Protection for Order {case.paypal_order_id or case.id}",
+        # Buyers open PayPal cases on PayPal itself (the Disputes API is seller-side), so this prepares the
+        # case file and points there. It is the buyer's claim until PayPal reports a dispute back.
+        ev = bc.add_evidence(db, case, kind="paypal_dispute_prepared", source="buyer", provenance="claimed",
+                             summary=f"Case file prepared for PayPal Purchase Protection (order {case.paypal_order_id or case.id})",
                              content={"action": "paypal_dispute", "order_id": case.paypal_order_id, "capture_id": case.paypal_capture_id})
-        bc.add_event(db, case, "dispute_opened", "buyer", {"action": "paypal_protection", "order_id": case.paypal_order_id})
+        bc.add_event(db, case, "dispute_prepared", "buyer", {"action": "paypal_protection", "order_id": case.paypal_order_id})
         db.commit()
-        return {"ok": True, "action": "paypal_protection", "message": f"Claim escalated to PayPal Purchase Protection. Reference order: {case.paypal_order_id or case.id}."}
+        return {"ok": True, "action": "paypal_protection",
+                "message": f"Case file prepared. Open the case on PayPal (Resolution Center) for order {case.paypal_order_id or case.id}; "
+                           "ContextIQ picks it up from PayPal once it is filed.",
+                "open_url": "https://www.paypal.com/resolutioncenter"}
 
     return {"ok": False, "error": f"Unknown resolution action: {action}"}
 

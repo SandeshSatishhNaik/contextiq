@@ -277,7 +277,7 @@ def chat(db: Session, uid: str, message: str, case_id: str | None = None) -> dic
                 },
                 {
                     "expert": "policy",
-                    "summary": "Policy terms: Return window active." + (f" Note exclusion: {', '.join(f['exclusions'])}." if f.get("exclusions") else " Standard 30-day return applies."),
+                    "summary": "Policy terms: Return window active." + (f" Note exclusion: {', '.join(f['exclusions'])}." if f.get("exclusions") else " No exclusions flagged in the saved terms."),
                     "confidence": 0.85,
                     "unknowns": [],
                     "proposed_action": None,
@@ -285,7 +285,7 @@ def chat(db: Session, uid: str, message: str, case_id: str | None = None) -> dic
                 },
                 {
                     "expert": "evidence",
-                    "summary": f"Merchant cart verified at {it.merchant}. Observation logged in briefcase ledger.",
+                    "summary": f"Price observations for this item at {it.merchant} are logged in your briefcase.",
                     "confidence": 1.0,
                     "unknowns": [],
                     "proposed_action": None,
@@ -294,12 +294,12 @@ def chat(db: Session, uid: str, message: str, case_id: str | None = None) -> dic
             ]
             trace = [
                 f"matched target item: {it.name} at {it.merchant} ({money(cart_price)})",
-                "specialists dispatched in parallel: price, budget, policy, evidence",
+                "findings computed from: price history, budget, saved policy terms, briefcase observations",
                 f"price expert: {money(cart_price)}" + (f" reflects {money(price_drop)} drop" if price_drop > 0 else " holds steady"),
                 f"budget expert: projected remaining cash {money(f.get('cash_left') or 0.0)} after pending bills",
                 "policy expert: pre-purchase snapshot inspected" + (f" ({len(f['exclusions'])} exclusion flags)" if f.get("exclusions") else " (clear)"),
-                "evidence expert: proof of intent and product terms verified",
-                "consensus reached: synthesis delivered"
+                "evidence: price observations found in briefcase",
+                "answer composed from the four findings above"
             ]
             out = base | {
                 "answer": text,

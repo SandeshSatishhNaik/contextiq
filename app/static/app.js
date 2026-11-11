@@ -611,7 +611,7 @@ function payButton(el, create = () => api("/api/checkout", { body: S.cart })) {
   if (S.config.paypal_env !== "mock" && S.config.paypal_client_id) {
     el.innerHTML = `<div id="pp-buttons" style="margin-top:10px"></div>
       <div style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center">
-        PayPal Sandbox popup issue? <a href="#" id="direct-pp-link" style="color:var(--brand);text-decoration:underline">Open in fresh tab</a> or <a href="#" id="bypass-pp-btn" style="color:var(--brand);text-decoration:underline">⚡ Instant Sandbox Approval</a>
+        PayPal Sandbox popup issue? <a href="#" id="direct-pp-link" style="color:var(--brand);text-decoration:underline">Open in fresh tab</a> · approved there? <a href="#" id="finish-pp-btn" style="color:var(--brand);text-decoration:underline">Finish payment</a>
       </div>`;
     loadPayPalSdk().then(() => window.paypal.Buttons({
       style: { layout: "vertical", shape: "pill", label: "pay" },
@@ -635,15 +635,12 @@ function payButton(el, create = () => api("/api/checkout", { body: S.cart })) {
           }
         };
       }
-      const bypassBtn = $("#bypass-pp-btn");
-      if (bypassBtn) {
-        bypassBtn.onclick = async (e) => {
+      const finishBtn = $("#finish-pp-btn");
+      if (finishBtn) {
+        finishBtn.onclick = (e) => {
           e.preventDefault();
-          bypassBtn.textContent = "Approving...";
-          const r = await create();
-          S.checkout = r;
-          await api(`/api/cases/${S.checkout.case_id}/approve-mock`, { method: "POST" });
-          complete();
+          if (!S.checkout) return toast("Open PayPal first, approve there, then come back here.");
+          complete();  // capture is refused unless PayPal reports the order approved
         };
       }
     }, 100);
