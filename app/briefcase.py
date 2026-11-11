@@ -130,7 +130,8 @@ def view_case(db: Session, case_id: str, party_id: str) -> dict | None:
         "events": [{"id": e.id, "type": e.type, "source": e.source, "at": e.occurred_at.isoformat(),
                     "payload": e.payload} for e in events if e.type not in hidden_event_types],
         "evidence": [{"id": e.id, "kind": e.kind, "provenance": e.provenance, "source": e.source,
-                      "summary": e.summary, "cites": e.cites} for e in evidence
+                      "summary": e.summary, "cites": e.cites, "hash": e.content_hash,
+                      "at": e.created_at.isoformat()} for e in evidence
                      if e.visible_to in ("both", role)],
         "obligations": [{"id": o.id, "kind": o.kind, "title": o.title, "due_at": o.due_at.isoformat(),
                          "status": o.status, "amount": o.amount} for o in obligations],

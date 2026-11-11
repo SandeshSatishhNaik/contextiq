@@ -110,7 +110,11 @@ def draft(db: Session, case: Case) -> dict:
     else:
         rec, why = "accept", "the briefcase lacks the evidence PayPal needs for this reason"
     payload = {"dispute_id": d["dispute_id"], "evidences": evidences}
-    return {"ok": True, "dispute": d, "recommendation": rec, "why": why, "facts": facts,
+    proofs = [{"label": "Payment captured by PayPal", "present": bool(case.paypal_capture_id)},
+              {"label": "Buyer approved these exact items", "present": ag is not None},
+              {"label": "Store terms saved at checkout", "present": pol is not None},
+              {"label": "Tracking registered with PayPal", "present": tracking is not None}]
+    return {"ok": True, "dispute": d, "recommendation": rec, "why": why, "facts": facts, "proofs": proofs,
             "payload": payload, "draft_hash": bc.content_hash(payload)}
 
 

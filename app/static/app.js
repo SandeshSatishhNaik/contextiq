@@ -1013,6 +1013,31 @@ views.notices = async () => {
   };
 };
 
+/* Evidence ledger: every fact with who vouches for it, oldest first. */
+const SEAL = {
+  verified: { name: "Verified", tip: "Comes from PayPal or a signed record" },
+  claimed: { name: "Claimed", tip: "Someone said it; not yet proven" },
+  inferred: { name: "Inferred", tip: "Worked out by ContextIQ from the facts it cites" },
+};
+const SRC = { paypal_api: "PayPal", paypal_webhook: "PayPal", contextiq: "ContextIQ", merchant_page: "Store page",
+  buyer: "Buyer", seller: "Seller", supplier: "Supplier", refund_expert: "ContextIQ" };
+function ledgerHtml(evidence, events, evText) {
+  const rows = evidence.map((e) => ({ at: e.at, text: e.summary, prov: e.provenance, src: SRC[e.source] || cap(e.source), hash: e.hash }))
+    .concat(events.filter((e) => e.type === "delivered").map((e) => ({ at: e.at, text: evText[e.type], prov: "claimed", src: "Carrier (simulated)" })))
+    .sort((a, b) => (a.at || "").localeCompare(b.at || ""));
+  if (!rows.length) return "";
+  const LIMIT = 6, extra = rows.length - LIMIT;
+  const li = (r, i) => `<li class="led-row${i >= LIMIT ? " led-more" : ""}" data-prov="${esc(r.prov)}">
+      <span class="seal seal-${esc(r.prov)}" title="${esc(SEAL[r.prov]?.tip || "")}" aria-hidden="true"></span>
+      <div class="led-body"><p class="led-text">${esc(r.text)}</p>
+        <p class="led-meta"><b class="led-prov">${esc(SEAL[r.prov]?.name || r.prov)}</b> by ${esc(r.src)} · ${fmtDate(r.at)}${r.hash ? ` <span class="led-hash" title="SHA-256 ${esc(r.hash)}">#${esc(r.hash.slice(0, 8))}</span>` : ""}</p></div></li>`;
+  return `<section class="ledger" aria-label="Evidence for this purchase">
+      <h3 class="ledger-h">Evidence</h3>
+      <ol class="led" id="led">${rows.map(li).join("")}</ol>
+      ${extra > 0 ? `<button class="btn ghost small led-toggle" type="button" onclick="this.previousElementSibling.classList.add('open');this.remove()">Show ${extra} more</button>` : ""}
+    </section>`;
+}
+
 const LABEL = { return_window: "Return for a refund", replacement_window: "Free swap if faulty", warranty: "Warranty repair", bill: "Bill", supplier_payment: "Payment due" };
 async function openCase(id) {
   const v = await api(`/api/cases/${id}`), c = v.case;
@@ -1026,7 +1051,7 @@ async function openCase(id) {
     ${dls.length ? `<div style="display:grid;gap:12px;margin:16px 0">${dls.map((o) => `<div style="display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:center">
       <div class="viz">${o.days > 0 ? countdown(o.days, o.kind === "warranty" ? 365 : 30, o.days <= 3 ? "#C0392B" : "#1A7F4B") : `<div class="tile">${I.lock}</div>`}</div>
       <div><b>${LABEL[o.kind]}</b><br><span class="hint">${o.days > 0 ? `Until ${fmtDate(o.due_at)}` : "Closed"}${o.kind === "return_window" && notReturnable(c.title, excl) ? " · only if unopened" : ""}</span></div></div>`).join("")}</div>` : ""}
-    ${ev.length ? `<div class="note">${ev.map((e) => `${evText[e.type]} · ${fmtDate(e.at)}`).join("<br>")}</div>` : ""}
+    ${ledgerHtml(v.evidence || [], ev, evText)}
     ${v.role === "seller" && c.paypal_capture_id ? `<div id="disputebox" style="margin:12px 0"></div>` : ""}
     ${v.role === "seller" && c.payment_state === "captured" && !shipped ? `<button class="btn primary wide" id="ship">${I.lock} Mark shipped · send tracking to PayPal</button><div id="shipbox"></div>` : ""}
     ${v.role !== "seller" && c.payment_state === "captured" && c.purpose !== "business" ? `<button class="btn outline wide" id="wrong">Something wrong with it?</button><div id="wrongbox"></div>` : ""}`);
@@ -1096,6 +1121,9 @@ async function openCase(id) {
 }
 
 /* ------------------------------------------------------- PayPal dispute (seller side) */
+const REASON = { MERCHANDISE_OR_SERVICE_NOT_RECEIVED: "Item not received", MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED: "Not as described",
+  UNAUTHORISED: "Payment not authorised", DUPLICATE_TRANSACTION: "Charged twice" };
+const EVTYPE = { PROOF_OF_FULFILLMENT: "proof of fulfillment (tracking)", OTHER: "supporting notes" };
 async function drawDispute(id) {
   const box = $("#disputebox");
   const { dispute: d } = await api(`/api/cases/${id}/dispute`);
@@ -1105,18 +1133,40 @@ async function drawDispute(id) {
     return;
   }
   const outcome = d.dispute_outcome?.outcome_code;
-  box.innerHTML = `<div class="note ${d.status === "RESOLVED" ? (outcome === "RESOLVED_SELLER_FAVOUR" ? "ok" : "warn") : "bad"}">
-      <b>PayPal dispute ${esc(d.dispute_id)}</b><br>${esc((d.reason || "").replaceAll("_", " ").toLowerCase())} · <b>${esc(d.status)}</b>${outcome ? ` · ${esc(outcome.replaceAll("_", " ").toLowerCase())}` : ""}</div>
+  const won = outcome === "RESOLVED_SELLER_FAVOUR";
+  const status = d.status === "RESOLVED" ? (won ? "Closed in your favour" : "Closed for the buyer") : "Open: PayPal is waiting on you";
+  box.innerHTML = `<div class="dispute-head ${d.status === "RESOLVED" ? (won ? "won" : "lost") : "open"}">
+      <span class="dh-dot" aria-hidden="true"></span>
+      <div><b>PayPal dispute: ${esc(REASON[d.reason] || d.reason)}</b><p>${esc(status)} · case ${esc(d.dispute_id)}</p></div></div>
     ${d.status !== "RESOLVED" ? `<button class="btn primary wide" id="ddraft">Prepare a response from the briefcase</button><div id="ddraftbox"></div>` : ""}`;
   $("#ddraft") && ($("#ddraft").onclick = async () => {
+    $("#ddraft").hidden = true;
     const r = await api(`/api/cases/${id}/dispute/draft`, { method: "POST" });
     if (!r.ok) return ($("#ddraftbox").innerHTML = `<div class="note bad">${esc(r.error)}</div>`);
     const fight = r.recommendation === "fight";
-    $("#ddraftbox").innerHTML = `<div class="note"><b>Recommendation: ${fight ? "respond with evidence" : "accept and refund"}</b> — ${esc(r.why)}
-        <ul style="margin:6px 0 0 18px">${r.facts.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
-        ${r.payload.evidences.map((e) => `<div class="hint">Sends to PayPal: ${esc(e.evidence_type)}</div>`).join("")}</div>
-      ${r.payload.evidences.length ? `<button class="btn ${fight ? "primary" : "outline"} wide" id="dsubmit">Approve &amp; send this evidence to PayPal</button>` : ""}
-      <button class="btn ${fight ? "outline" : "primary"} wide" id="daccept" style="margin-top:6px">Accept the claim (PayPal refunds the buyer)</button>
+    const have = r.proofs.filter((p) => p.present).length;
+    const dd = r.dispute, amt = dd.dispute_amount;
+    $("#ddraftbox").innerHTML = `<div class="casefile">
+        <div class="cf-col cf-claim">
+          <h4>What the buyer told PayPal</h4>
+          <p class="cf-big">${esc(REASON[dd.reason] || (dd.reason || "").replaceAll("_", " ").toLowerCase())}</p>
+          <p class="muted">${amt ? `${money(Number(amt.value), amt.currency_code)} disputed · ` : ""}case ${esc(dd.dispute_id)}</p>
+        </div>
+        <div class="cf-col cf-proof">
+          <h4>What the briefcase proves</h4>
+          <ol class="proofs" aria-label="${have} of ${r.proofs.length} proofs found">${r.proofs.map((p) =>
+            `<li class="${p.present ? "has" : "missing"}"><span aria-hidden="true"></span>${esc(p.label)}${p.present ? "" : " <em>(missing)</em>"}</li>`).join("")}</ol>
+          <div class="meter" role="img" aria-label="Evidence strength ${have} of ${r.proofs.length}">${r.proofs.map((p) => `<i class="${p.present ? "on" : ""}"></i>`).join("")}</div>
+        </div>
+      </div>
+      <div class="verdict ${fight ? "fight" : "accept"}">
+        <b>${fight ? "Respond with evidence" : "Accept and refund"}</b>
+        <p>${esc(cap(r.why))}.</p>
+        ${r.payload.evidences.map((e) => `<p class="hint">Goes to PayPal as ${esc(EVTYPE[e.evidence_type] || e.evidence_type)}.</p>`).join("")}
+      </div>
+      ${r.payload.evidences.length ? `<button class="btn ${fight ? "primary" : "outline"} wide" id="dsubmit">Send this evidence to PayPal</button>
+        <p class="hint cf-promise">Nothing is sent until you press this, and only this exact draft is sent.</p>` : ""}
+      <button class="btn ${fight ? "ghost" : "primary"} wide" id="daccept">Accept the claim and refund the buyer</button>
       <div id="dresult"></div>`;
     $("#dsubmit") && ($("#dsubmit").onclick = async () => {
       const s = await api(`/api/cases/${id}/dispute/submit`, { body: { draft_hash: r.draft_hash } });
