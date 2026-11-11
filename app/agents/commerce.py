@@ -24,10 +24,11 @@ from ..models import (
     Obligation,
     PolicySnapshot,
     PriceObservation,
+    SecurityEvent,
     User,
 )
 from ..paypal import payments
-from ..security import crypto, gateway
+from ..security import crypto, gateway, mandate
 from . import budget as budget_agent
 from . import context as ctx_agent
 from . import policy as policy_agent
@@ -102,15 +103,17 @@ def start_checkout(db: Session, user_id: str, *, merchant: str, items: list[dict
         bc.add_evidence(db, case, kind="policy_snapshot", source="merchant_page", provenance="claimed",
                         summary=f"{merchant} policy as shown at purchase: " + _policy_short(terms),
                         content={"terms": terms, "url": policy_url})
-    bc.record_agreement(db, case, items=items, amount=total, currency=currency, payee=merchant,
-                        terms=terms, approved_by=user_id)
+    ag = bc.record_agreement(db, case, items=items, amount=total, currency=currency, payee=merchant,
+                             terms=terms, approved_by=user_id)
+    m = mandate.issue(db, case, ag, payer=user_id)
     db.flush()
     agreement_ev = db.scalars(select(bc.Evidence).where(bc.Evidence.case_id == case.id,
                                                         bc.Evidence.kind == "agreement")).first()
     bc.add_evidence(db, case, kind="classification", source="context_model", provenance="inferred",
                     summary=f"Classified as {case.purpose} / {case.category} ({ctx['purpose_confidence']:.0%})",
                     content=ctx, cites=[agreement_ev.id] if agreement_ev else [], visible_to="buyer")
-    order = payments.create_order_for_case(db, case, items, payee_email=payee_email)
+    # PayPal's order record carries the mandate hash, so the payment points back to what the buyer signed.
+    order = payments.create_order_for_case(db, case, items, payee_email=payee_email, custom_id=f"ciqm:{m['hash']}")
     approval = gateway.issue_approval(db, user_id=user_id, case=case, action="capture")
     db.commit()
     return {"case_id": case.id, "order": order, "approval_token": approval.token, "amount": total,
@@ -127,6 +130,10 @@ def complete_payment(db: Session, user_id: str, case_id: str, approval_token: st
     state = payments.sync_order_state(db, case)
     if state["order_status"] not in ("APPROVED", "COMPLETED"):
         return {"ok": False, "error": f"buyer has not approved the order on PayPal yet ({state['order_status']})"}
+    ok, why = mandate.verify(db, case)
+    if not ok:  # fail closed: no valid signed mandate, no capture
+        db.add(SecurityEvent(user_id=user_id, kind="mandate_denied", severity="warning", detail={"case": case.id, "reason": why}))
+        return {"ok": False, "gateway": "deny", "reasons": [why]}
     if step_up_code:
         gateway.pass_step_up(db, approval_token, step_up_code)
     risk = ctx_agent.assess_risk(db, user_id, case.merchant, case.amount, **(signals or {}))

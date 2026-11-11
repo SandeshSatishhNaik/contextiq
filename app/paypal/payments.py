@@ -14,7 +14,8 @@ from .adapter import PayPalError, approve_link, capture_from_order, get_client
 TRANSIENT = (httpx.TimeoutException, httpx.TransportError)
 
 
-def create_order_for_case(db: Session, case: Case, items: list[dict], payee_email: str | None = None) -> dict:
+def create_order_for_case(db: Session, case: Case, items: list[dict], payee_email: str | None = None,
+                          custom_id: str | None = None) -> dict:
     client = get_client()
     user = db.get(User, case.owner_id) if case.owner_id else None
     payer_email = user.paypal_email if (user and user.paypal_email) else None
@@ -25,6 +26,7 @@ def create_order_for_case(db: Session, case: Case, items: list[dict], payee_emai
         cancel_url=f"{settings.public_base_url}/paypal/cancel?case={case.id}",
         payee_email=payee_email,
         payer_email=payer_email,
+        custom_id=custom_id,
     )
     case.paypal_order_id = order["id"]
     bc.set_payment_state(db, case, "order_created", "paypal_api", {"order_id": order["id"], "status": order["status"]})

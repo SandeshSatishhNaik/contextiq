@@ -565,6 +565,36 @@ def mock_open_dispute(case_id: str, user: User = Depends(user_dep), db=Depends(d
     return {"ok": True, "dispute_id": d["dispute_id"]}
 
 
+# ------------------------------------------------------------ signed spending mandates
+@app.get("/api/cases/{case_id}/mandate")
+def mandate_get(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
+    from .security import mandate
+
+    case = _my_case(db, case_id, user)
+    ev = mandate.current(db, case)
+    ok, why = mandate.verify(db, case)
+    return {"mandate": None if not ev else {k: v for k, v in ev.content.items() if k != "token"},
+            "valid": ok, "reason": why}
+
+
+@app.post("/api/cases/{case_id}/mandate/revoke")
+def mandate_revoke(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
+    from .security import mandate
+
+    case = _my_case(db, case_id, user)
+    if case.owner_id != user.id:
+        raise HTTPException(403, "only the buyer can revoke their mandate")
+    return mandate.revoke(db, case, by=user.id)
+
+
+@app.post("/api/cases/{case_id}/mandate/overspend-test")
+def mandate_overspend_test(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
+    """Demo: a prompt-injected agent tries to overcharge and redirect the payment; the mandate blocks it."""
+    from .security import mandate
+
+    return mandate.overspend_test(db, _my_case(db, case_id, user))
+
+
 @app.post("/api/cases/{case_id}/delivered")
 def delivered(case_id: str, days_ago: int = 0, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     """Simulated carrier delivery event (no carrier integration); PayPal tracking is separate."""

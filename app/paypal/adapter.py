@@ -78,7 +78,8 @@ class PayPalClient:
     # -------------------------------------------------------------- orders
     def create_order(self, *, amount: float, currency: str, items: list[dict], reference_id: str,
                      description: str, request_id: str, return_url: str, cancel_url: str,
-                     payee_email: str | None = None, payer_email: str | None = None) -> dict:
+                     payee_email: str | None = None, payer_email: str | None = None,
+                     custom_id: str | None = None) -> dict:
         item_total = round(sum(float(i["unit_price"]) * int(i.get("quantity", 1)) for i in items), 2)
         unit: dict[str, Any] = {
             "reference_id": reference_id,
@@ -96,6 +97,8 @@ class PayPalClient:
         }
         if payee_email:
             unit["payee"] = {"email_address": payee_email}
+        if custom_id:
+            unit["custom_id"] = custom_id[:127]
         body: dict[str, Any] = {
             "intent": "CAPTURE",
             "purchase_units": [unit],

@@ -1052,10 +1052,20 @@ async function openCase(id) {
       <div class="viz">${o.days > 0 ? countdown(o.days, o.kind === "warranty" ? 365 : 30, o.days <= 3 ? "#C0392B" : "#1A7F4B") : `<div class="tile">${I.lock}</div>`}</div>
       <div><b>${LABEL[o.kind]}</b><br><span class="hint">${o.days > 0 ? `Until ${fmtDate(o.due_at)}` : "Closed"}${o.kind === "return_window" && notReturnable(c.title, excl) ? " · only if unopened" : ""}</span></div></div>`).join("")}</div>` : ""}
     ${ledgerHtml(v.evidence || [], ev, evText)}
+    ${v.role !== "seller" && (v.evidence || []).some((e) => e.kind === "spending_mandate") ? `<div class="mandate-test">
+      <button class="btn outline wide" id="mtest" type="button">Test the signed mandate: let an agent try to overspend</button>
+      <div id="mtestbox" aria-live="polite"></div></div>` : ""}
     ${v.role === "seller" && c.paypal_capture_id ? `<div id="disputebox" style="margin:12px 0"></div>` : ""}
     ${v.role === "seller" && c.payment_state === "captured" && !shipped ? `<button class="btn primary wide" id="ship">${I.lock} Mark shipped · send tracking to PayPal</button><div id="shipbox"></div>` : ""}
     ${v.role !== "seller" && c.payment_state === "captured" && c.purpose !== "business" ? `<button class="btn outline wide" id="wrong">Something wrong with it?</button><div id="wrongbox"></div>` : ""}`);
   if ($("#disputebox")) drawDispute(id);
+  $("#mtest") && ($("#mtest").onclick = async () => {
+    $("#mtest").disabled = true;
+    const r = await api(`/api/cases/${id}/mandate/overspend-test`, { method: "POST" });
+    $("#mtestbox").innerHTML = r.attempts.map((a) => `<div class="mt-row ${a.allowed ? "allowed" : "blocked"}">
+        <b>${a.allowed ? "Allowed" : "Blocked"}:</b> ${esc(a.attempt)} (${money(a.amount, c.currency)} to ${esc(a.payee)}).
+        <span class="hint">${esc(cap(a.reason))}.</span></div>`).join("");
+  });
   $("#ship") && ($("#ship").onclick = async () => {
     $("#ship").disabled = true;
     const r = await api(`/api/cases/${id}/ship`, { body: {} });

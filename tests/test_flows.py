@@ -429,3 +429,41 @@ def test_dispute_under_review_gets_supporting_info():
     sub = c.post(f"/api/cases/{cid}/dispute/submit", json={"draft_hash": dr["draft_hash"]}, headers=S).json()
     assert sub["ok"] and sub["via"] == "provide-supporting-info", sub
     assert "9400111899223344550000" in mock.DISPUTES[d["dispute_id"]]["supporting_info"][0]["notes"]
+
+
+
+def test_signed_mandate_on_order_and_enforced_at_capture():
+    from app.db import SessionLocal
+    from app.models import Case
+    from app.paypal import mock
+    from app.security import mandate
+
+    co = c.post("/api/checkout", json=CART, headers=H).json()
+    cid = co["case_id"]
+    m = c.get(f"/api/cases/{cid}/mandate", headers=H).json()
+    assert m["valid"] and m["mandate"]["max_amount"] == 249.0 and "token" not in m["mandate"]
+    unit = mock.ORDERS[co["order"]["order_id"]]["purchase_units"][0]
+    assert unit["custom_id"] == f"ciqm:{m['mandate']['hash']}"  # PayPal's record points back to the mandate
+    with SessionLocal() as db:
+        case = db.get(Case, cid)
+        assert not mandate.verify(db, case, amount=500.0)[0]                       # over the cap
+        assert not mandate.verify(db, case, payee="Somebody Else")[0]              # different payee
+        tok = mandate.current(db, case).content["token"]
+        forged = tok[:-4] + ("AAAA" if not tok.endswith("AAAA") else "BBBB")
+        assert not mandate.verify(db, case, token=forged)[0]                      # altered signature
+    t = c.post(f"/api/cases/{cid}/mandate/overspend-test", headers=H).json()
+    assert t["blocked"] == 2
+    assert c.post(f"/api/cases/{cid}/mandate/revoke", headers={"X-User-Id": "brightmart"}).status_code == 403
+    assert c.post(f"/api/cases/{cid}/mandate/revoke", headers=H).json()["ok"]
+    c.post(f"/api/cases/{cid}/approve-mock")
+    r = c.post(f"/api/cases/{cid}/capture", json={"approval_token": co["approval_token"]}, headers=H).json()
+    assert r["ok"] is False and "revoked" in r["reasons"][0]  # fails closed after revocation
+
+
+def test_dispute_draft_cites_the_mandate():
+    S = {"X-User-Id": "brightmart"}
+    cid, tok, r = _pay()
+    c.post(f"/api/mock/open-dispute/{cid}", headers=H)
+    dr = c.post(f"/api/cases/{cid}/dispute/draft", headers=S).json()
+    assert any("signed spending mandate" in f for f in dr["facts"])
+    assert any(p["label"].startswith("Buyer's signed") and p["present"] for p in dr["proofs"])

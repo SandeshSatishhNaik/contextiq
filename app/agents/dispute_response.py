@@ -83,6 +83,13 @@ def draft(db: Session, case: Case) -> dict:
         facts.append(f"agreement fingerprint {ag.signed_hash[:16]}… for {money(ag.amount, ag.currency)} to {ag.payee}")
         notes.append(f"Buyer approved exactly: {', '.join(i.get('name', '') for i in ag.items)} for "
                      f"{money(ag.amount, ag.currency)} (SHA-256 {ag.signed_hash}).")
+    md = db.scalar(select(Evidence).where(Evidence.case_id == case.id, Evidence.kind == "spending_mandate")
+                   .order_by(Evidence.created_at.desc()))
+    if md:
+        facts.append(f"buyer's signed spending mandate #{md.content['hash'][:8]} (Ed25519), referenced on the PayPal order")
+        notes.append(f"The buyer signed a spending mandate for this exact purchase (up to {md.content['currency']} "
+                     f"{md.content['max_amount']:.2f} to {md.content['payee']}); its SHA-256 {md.content['hash']} is "
+                     f"stored on the PayPal order as custom_id.")
     if pol:
         facts.append(f"store terms saved {pol.captured_at:%Y-%m-%d} before payment")
         terms = pol.extracted or {}
@@ -101,18 +108,21 @@ def draft(db: Session, case: Case) -> dict:
         evidences.append({"evidence_type": "OTHER", "notes": " ".join(notes)[:2000]})
 
     reason = d.get("reason")
-    strong = (reason == INR and tracking is not None) or (reason == SNAD and ag is not None and pol is not None)
+    strong = ((reason == INR and tracking is not None) or (reason == SNAD and ag is not None and pol is not None)
+              or (reason == "UNAUTHORISED" and md is not None))
     if case.amount < ACCEPT_BELOW:
         rec, why = "accept", f"under {money(ACCEPT_BELOW, case.currency)}: refunding costs less than fighting"
     elif strong:
-        rec, why = "fight", ("shipment tracking is on file with PayPal" if reason == INR
-                             else "the buyer approved these exact terms and items before paying")
+        rec, why = "fight", {INR: "shipment tracking is on file with PayPal",
+                             "UNAUTHORISED": "the buyer signed a spending mandate for this exact payment"}.get(
+            reason, "the buyer approved these exact terms and items before paying")
     else:
         rec, why = "accept", "the briefcase lacks the evidence PayPal needs for this reason"
     payload = {"dispute_id": d["dispute_id"], "evidences": evidences}
     proofs = [{"label": "Payment captured by PayPal", "present": bool(case.paypal_capture_id)},
               {"label": "Buyer approved these exact items", "present": ag is not None},
               {"label": "Store terms saved at checkout", "present": pol is not None},
+              {"label": "Buyer's signed spending mandate", "present": md is not None},
               {"label": "Tracking registered with PayPal", "present": tracking is not None}]
     return {"ok": True, "dispute": d, "recommendation": rec, "why": why, "facts": facts, "proofs": proofs,
             "payload": payload, "draft_hash": bc.content_hash(payload)}

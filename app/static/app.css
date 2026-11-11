@@ -493,3 +493,10 @@ body.seller .role button[aria-pressed="true"] { color: var(--biz); }
   .casefile { grid-template-columns: 1fr; }
   .cf-claim { border-right: 0; border-bottom: 1px solid var(--line); }
 }
+
+/* ---------- mandate test ---------- */
+.mandate-test { margin: 10px 0 4px; }
+.mt-row { margin-top: 8px; padding: 10px 12px; border-radius: 12px; font-size: 14px; line-height: 1.4; }
+.mt-row.blocked { background: #EAF6EF; } .mt-row.blocked b { color: var(--good); }
+.mt-row.allowed { background: #FDF1EF; } .mt-row.allowed b { color: var(--coral); }
+.mt-row .hint { display: block; margin-top: 2px; font-size: 13px; }
