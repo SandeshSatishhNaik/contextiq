@@ -338,3 +338,28 @@ def test_bills_pay_and_recommendations():
     assert bill["id"] not in {b["id"] for b in c.get("/api/bills").json()}
     recs = c.get("/api/recommendations").json()
     assert recs["items"] and all(r["title"] and r["body"] for r in recs["items"])
+
+
+def test_paypal_return_cannot_inject_script():
+    html = c.get("/paypal/return", params={"case": "x';alert(1);//"}).text
+    assert "alert" not in html and "/?approved=" in html
+    assert '"/?approved=abc123"' in c.get("/paypal/return", params={"case": "abc123"}).text
+
+
+def test_reset_needs_mock_mode_or_admin_token(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "paypal_env", "sandbox")
+    monkeypatch.setattr(settings, "admin_token", "")
+    assert c.post("/api/reset").status_code == 403
+    monkeypatch.setattr(settings, "admin_token", "t0ken")
+    assert c.post("/api/reset", headers={"X-Admin-Token": "wrong"}).status_code == 403
+
+
+def test_non_participant_cannot_act_on_case():
+    cid, tok, r = _pay()
+    stranger = {"X-User-Id": "novaparts"}
+    assert c.post(f"/api/cases/{cid}/resolution", json={"action": "request_swap"}, headers=stranger).status_code == 404
+    assert c.get(f"/api/cases/{cid}/refund-eligibility", headers=stranger).status_code == 404
+    assert c.post(f"/api/cases/{cid}/investigate", headers=stranger).status_code == 404
+    assert c.post(f"/api/cases/{cid}/refund/approve", headers=stranger).status_code == 404

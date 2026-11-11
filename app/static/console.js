@@ -746,7 +746,8 @@ async function go(name) {
   else if (state.config.paypal_env === "sandbox") { env.hidden = false; env.textContent = "PayPal sandbox — test accounts and test money only."; }
   document.querySelectorAll(".tabs [data-view]").forEach((b) => b.onclick = () => go(b.dataset.view));
   const rstBtn = $("#demo-reset-btn");
-  if (rstBtn) {
+  if (rstBtn && !state.config.reset_allowed) rstBtn.hidden = true;
+  if (rstBtn && state.config.reset_allowed) {
     rstBtn.onclick = async () => {
       if (!confirm("Reset all carts, transactions, and notices to a fresh demo baseline?")) return;
       rstBtn.disabled = true;

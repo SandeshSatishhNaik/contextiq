@@ -75,6 +75,14 @@ def user_dep(x_user_id: str = Header("alex"), db=Depends(db_dep, scope="function
     return u
 
 
+def _my_case(db, case_id: str, user: User) -> Case:
+    """The case, if the caller is one of its participants; 404 otherwise (no existence leak)."""
+    case = db.get(Case, case_id)
+    if not case or not bc.view_case(db, case_id, user.id):
+        raise HTTPException(404, "not found or not permitted")
+    return case
+
+
 class Item(BaseModel):
     name: str
     unit_price: float
@@ -110,14 +118,20 @@ def index():
     return FileResponse(STATIC / "index.html")
 
 
+def _redirect_page(param: str, case: str) -> HTMLResponse:
+    # Case ids are hex; anything else is dropped so the value can never break out of the script.
+    safe = case if case.isalnum() else ""
+    return HTMLResponse(f"<script>location.href={json.dumps(f'/?{param}={safe}')}</script>")
+
+
 @app.get("/paypal/return", response_class=HTMLResponse)
 def paypal_return(case: str):
-    return HTMLResponse(f"<script>location.href='/?approved={case}'</script>")
+    return _redirect_page("approved", case)
 
 
 @app.get("/paypal/cancel", response_class=HTMLResponse)
 def paypal_cancel(case: str):
-    return HTMLResponse(f"<script>location.href='/?cancelled={case}'</script>")
+    return _redirect_page("cancelled", case)
 
 
 # --------------------------------------------------------------- general
@@ -140,7 +154,8 @@ async def _metrics(request: Request, call_next):
 def config():
     return {"paypal_env": settings.paypal_env, "currency": settings.currency, "genai": llm.available(),
             "llm": llm.provider_name(),
-            "paypal_client_id": settings.paypal_client_id if settings.paypal_env != "mock" else "mock"}
+            "paypal_client_id": settings.paypal_client_id if settings.paypal_env != "mock" else "mock",
+            "reset_allowed": settings.paypal_env == "mock"}
 
 
 @app.get("/api/users")
@@ -378,8 +393,13 @@ def create_notice(body: NoticeIn, user: User = Depends(user_dep), db=Depends(db_
 
 
 @app.post("/api/reset")
-def reset_everything(db=Depends(db_dep, scope="function")):
-    """Reset all transaction state and re-seed clean starter data."""
+def reset_everything(x_admin_token: str = Header(""), db=Depends(db_dep, scope="function")):
+    """Reset all transaction state and re-seed clean starter data (mock mode, or with ADMIN_TOKEN)."""
+    import secrets as _secrets
+
+    if settings.paypal_env != "mock" and not (
+            settings.admin_token and _secrets.compare_digest(x_admin_token, settings.admin_token)):
+        raise HTTPException(403, "reset is only available in mock mode or with the admin token")
     from .models import (
         AuditLog,
         Budget,
@@ -411,13 +431,13 @@ def recommendations(user: User = Depends(user_dep), db=Depends(db_dep, scope="fu
 
 
 @app.post("/api/cases/{case_id}/approve-mock")
-def approve_mock(case_id: str, db=Depends(db_dep, scope="function")):
+def approve_mock(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     """Mock mode only: stands in for the buyer clicking 'Pay' on PayPal's page."""
     if settings.paypal_env != "mock":
         raise HTTPException(400, "only in mock mode — approve on PayPal's page instead")
     from .paypal import mock
 
-    case = db.get(Case, case_id)
+    case = _my_case(db, case_id, user)
     mock.approve(case.paypal_order_id)
     payments.sync_order_state(db, case)
     return {"ok": True}
@@ -438,7 +458,9 @@ def simulate_drop(case_id: str, body: CaptureIn, user: User = Depends(user_dep),
 
 
 @app.post("/api/cases/{case_id}/delivered")
-def delivered(case_id: str, days_ago: int = 0, db=Depends(db_dep, scope="function")):
+def delivered(case_id: str, days_ago: int = 0, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
+    """Simulated carrier delivery event (no carrier integration); PayPal tracking is separate."""
+    _my_case(db, case_id, user)
     return commerce.record_delivery(db, case_id, datetime.now(UTC) - timedelta(days=days_ago))
 
 
@@ -490,7 +512,7 @@ class ClaimIn(BaseModel):
 def add_claim(case_id: str, body: ClaimIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .agents import disputes
 
-    return disputes.add_claim(db, db.get(Case, case_id), user.id, body.topic, body.value, body.note)
+    return disputes.add_claim(db, _my_case(db, case_id, user), user.id, body.topic, body.value, body.note)
 
 
 @app.get("/api/cases/{case_id}/compare")
@@ -519,13 +541,19 @@ class A2AStart(BaseModel):
 def a2a_start(body: A2AStart, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from . import a2a
 
+    _my_case(db, body.case_id, user)
     return a2a.run_session(db, body.case_id, user.id, tamper=body.tamper)
 
 
 @app.post("/api/a2a/sessions/{session_id}/sync")
 def a2a_sync(session_id: str, simulate_failure: bool = False, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from . import a2a
+    from .models import A2ASession
 
+    sess = db.get(A2ASession, session_id)
+    if not sess:
+        raise HTTPException(404, "not found or not permitted")
+    _my_case(db, sess.case_id, user)
     return a2a.sync_payment(db, session_id, simulate_failure)
 
 
@@ -785,13 +813,13 @@ def case_view(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep, s
 
 @app.post("/api/cases/{case_id}/investigate")
 def investigate(case_id: str, claim: str = "payment not received", user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
-    case = db.get(Case, case_id)
+    case = _my_case(db, case_id, user)
     return commerce.payment_investigation(db, case, supplier_claim=claim)
 
 
 @app.get("/api/cases/{case_id}/refund-eligibility")
 def refund_elig(case_id: str, issue: str = "", user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
-    return commerce.refund_eligibility(db, db.get(Case, case_id), issue)
+    return commerce.refund_eligibility(db, _my_case(db, case_id, user), issue)
 
 
 class RefundIn(BaseModel):
@@ -804,7 +832,7 @@ class RefundIn(BaseModel):
 @app.post("/api/cases/{case_id}/refund/approve")
 def refund_approve(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     """Seller explicitly approves a refund on their case."""
-    case = db.get(Case, case_id)
+    case = _my_case(db, case_id, user)
     return {"approval_token": gateway.issue_approval(db, user_id=user.id, case=case, action="refund").token}
 
 
@@ -822,9 +850,7 @@ class ResolutionIn(BaseModel):
 
 @app.post("/api/cases/{case_id}/resolution")
 def case_resolution(case_id: str, body: ResolutionIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
-    case = db.get(Case, case_id)
-    if not case:
-        raise HTTPException(404, "Case not found")
+    case = _my_case(db, case_id, user)
     return commerce.execute_resolution(db, case, action=body.action, issue=body.issue, user_id=user.id)
 
 

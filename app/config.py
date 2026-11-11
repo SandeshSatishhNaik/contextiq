@@ -49,6 +49,7 @@ class Settings:
     qr_ttl_seconds: int = int(os.getenv("QR_TTL_SECONDS", "300"))
     approval_ttl_seconds: int = int(os.getenv("APPROVAL_TTL_SECONDS", "600"))
     server_secret: str = os.getenv("SERVER_SECRET", "dev-only-change-me")
+    admin_token: str = os.getenv("ADMIN_TOKEN", "")  # required for /api/reset outside mock mode
 
     @property
     def paypal_base_url(self) -> str:

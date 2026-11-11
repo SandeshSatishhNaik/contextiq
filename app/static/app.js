@@ -1171,9 +1171,9 @@ $("#me").onclick = () => {
       Location: ${p.location_ok ? "on (travel mode and unusual-place checks)" : "off — going by time of day"}
     </div>
     <button class="btn primary wide" id="redo">Change my setup</button>
-    <button class="btn outline wide" id="reset-all-btn" style="margin-top:10px;border-color:#EF4444;color:#DC2626">⚠️ Reset Everything to Clean Seed</button>`);
+    ${S.config && S.config.reset_allowed ? `<button class="btn outline wide" id="reset-all-btn" style="margin-top:10px;border-color:#EF4444;color:#DC2626">⚠️ Reset Everything to Clean Seed</button>` : ""}`);
   $("#redo").onclick = () => { sheet.close(); onboarding(); };
-  $("#reset-all-btn").onclick = async () => {
+  if ($("#reset-all-btn")) $("#reset-all-btn").onclick = async () => {
     if (confirm("Reset ContextIQ state back to clean initial seed? All test payments, notices, and cart state will be restored to clean baseline.")) {
       sheet.close();
       const r = await api("/api/reset", { method: "POST" });
