@@ -9,4 +9,5 @@ ignore = ["E501", "B008"]  # long lines in existing code; B008 = FastAPI Depends
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "-q"
