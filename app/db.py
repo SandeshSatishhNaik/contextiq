@@ -7,9 +7,19 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from .config import settings
 
-IS_SQLITE = settings.database_url.startswith("sqlite")
-connect_args = {"check_same_thread": False, "timeout": 30} if IS_SQLITE else {}
-engine = create_engine(settings.database_url, connect_args=connect_args, future=True)
+def _engine_url(url: str) -> str:
+    """Accept the plain postgres:// URLs that hosts hand out and use the psycopg 3 driver for them."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
+DATABASE_URL = _engine_url(settings.database_url)
+IS_SQLITE = DATABASE_URL.startswith("sqlite")
+# Behind a connection pooler (e.g. Supabase) prepared statements break; pre-ping drops dead connections.
+connect_args = {"check_same_thread": False, "timeout": 30} if IS_SQLITE else {"prepare_threshold": None}
+engine = create_engine(DATABASE_URL, connect_args=connect_args, future=True, pool_pre_ping=not IS_SQLITE)
 
 if IS_SQLITE:
     @event.listens_for(engine, "connect")
