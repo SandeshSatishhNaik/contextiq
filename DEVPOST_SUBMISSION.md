@@ -53,7 +53,7 @@ Not used yet: Invoicing v2 (adapter methods exist, not wired into the app), Payo
 
 ## How we built it
 
-FastAPI and SQLAlchemy (SQLite), vanilla JavaScript front end, LangGraph, scikit-learn, the `cryptography` library (Ed25519 signatures for QR codes and agent messages, SHA-256 fingerprints for agreements and evidence), `webauthn` for passkeys, deployed on Render. Supabase Postgres for the hosted demo's data. 37 end-to-end tests run the full API in mock mode on every push (GitHub Actions), which then deploys to Render.
+FastAPI and SQLAlchemy (SQLite), vanilla JavaScript front end, LangGraph, scikit-learn, the `cryptography` library (Ed25519 signatures for QR codes and agent messages, SHA-256 fingerprints for agreements and evidence), `webauthn` for passkeys, deployed on Render. Postgres support (psycopg) for hosting with persistent data. 37 end-to-end tests run the full API in mock mode on every push (GitHub Actions), which then deploys to Render.
 
 ## What's real and what's simulated
 
