@@ -408,3 +408,24 @@ def test_paypal_dispute_accepted_goes_through_gateway():
                    headers=S).json()
     assert a["ok"], a
     assert c.get(f"/api/cases/{cid}", headers=H).json()["case"]["payment_state"] == "refunded"
+
+
+def test_dispute_under_review_gets_supporting_info():
+    """A case already in PayPal review only accepts supporting info; the agent follows PayPal's links."""
+    from app.agents import dispute_response
+    from app.db import SessionLocal
+    from app.models import Case
+    from app.paypal import mock
+
+    S = {"X-User-Id": "brightmart"}
+    cid, tok, r = _pay()
+    c.post(f"/api/cases/{cid}/ship", json={"tracking_number": "9400111899223344550000"}, headers=S)
+    with SessionLocal() as db:
+        case = db.get(Case, cid)
+        d = mock.open_dispute(case.paypal_capture_id, status="UNDER_REVIEW")
+        dispute_response.record(db, d)
+        db.commit()
+    dr = c.post(f"/api/cases/{cid}/dispute/draft", headers=S).json()
+    sub = c.post(f"/api/cases/{cid}/dispute/submit", json={"draft_hash": dr["draft_hash"]}, headers=S).json()
+    assert sub["ok"] and sub["via"] == "provide-supporting-info", sub
+    assert "9400111899223344550000" in mock.DISPUTES[d["dispute_id"]]["supporting_info"][0]["notes"]

@@ -83,7 +83,7 @@ pip install -r requirements.txt  # requirements-ml.txt adds torch + peft for tra
 cp .env.example .env            # PAYPAL_ENV=mock works offline; see "PayPal sandbox" below
 python -m app.ml.train          # trains every model with hyperparameter search (~7 min), writes MODEL_REPORT.md
 python run.py                   # http://localhost:8000
-pip install -r requirements-dev.txt && pytest -q   # 34 end-to-end tests (mock mode)
+pip install -r requirements-dev.txt && pytest -q   # 35 end-to-end tests (mock mode)
 python -m app.ml.lora_policy    # optional, needs requirements-ml.txt: LoRA policy model (~12 min on CPU)
 python -m app.ml.evaluate_unseen  # final test on unseen, shifted data (~4 min)
 ```
@@ -176,7 +176,8 @@ ContextIQ icon. It reads the cart only when you click, never edits the page, and
 | Part | Status |
 | --- | --- |
 | PayPal Orders v2 (create, get, capture), Add Tracking | Real REST calls (`app/paypal/adapter.py`), verified against the sandbox |
-| PayPal refunds, Disputes v1 (list, get, provide-evidence, accept-claim, sandbox require-evidence/adjudicate), webhook verification | Real REST calls; dispute list/get verified in sandbox, the full loop tested against the PayPal-shaped mock |
+| PayPal Disputes v1 (list, get, provide-evidence / provide-supporting-info, accept-claim, sandbox adjudicate), webhook verification | Real REST calls; a buyer "item not received" dispute was answered and resolved in the seller's favour in sandbox |
+| PayPal refunds | Real REST calls; tested against the PayPal-shaped mock |
 | PayPal Invoicing v2 | Adapter methods only; not wired into the app yet |
 | Carrier delivery scan ("Mark delivered") | Simulated; PayPal tracking is real |
 | Self-healing payment, duplicate-charge protection | Real (`PayPal-Request-Id` + read-before-retry) |

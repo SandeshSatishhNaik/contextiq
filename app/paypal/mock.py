@@ -68,13 +68,20 @@ def inject_fault(name: str, times: int = 1) -> None:
     FAULTS[name] = FAULTS.get(name, 0) + times
 
 
-def open_dispute(capture_id: str, reason: str = "MERCHANDISE_OR_SERVICE_NOT_RECEIVED") -> dict:
+def _links(d: dict) -> list[dict]:
+    rel = {"WAITING_FOR_SELLER_RESPONSE": ["provide_evidence", "accept_claim"],
+           "UNDER_REVIEW": ["provide_supporting_info"]}.get(d["status"], [])
+    return [{"rel": "self", "method": "GET"}] + [{"rel": r, "method": "POST"} for r in rel]
+
+
+def open_dispute(capture_id: str, reason: str = "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
+                 status: str = "WAITING_FOR_SELLER_RESPONSE") -> dict:
     """Simulates the buyer filing a case at PayPal (what the sandbox buyer does in the Resolution Center)."""
     with _lock:
         cap = CAPTURES[capture_id]
         did = _id("PP-D-")
         d = {"dispute_id": did, "create_time": _now(), "update_time": _now(), "reason": reason,
-             "status": "WAITING_FOR_SELLER_RESPONSE", "dispute_life_cycle_stage": "CLAIM",
+             "status": status, "dispute_life_cycle_stage": "CLAIM" if status != "UNDER_REVIEW" else "CHARGEBACK",
              "dispute_channel": "INTERNAL", "dispute_amount": dict(cap["amount"]),
              "disputed_transactions": [{"seller_transaction_id": capture_id}],
              "seller_response_due_date": _now(), "evidences": []}
@@ -235,12 +242,18 @@ def _route(method: str, path: str, body: dict) -> tuple[int, dict]:
         if not d:
             return 404, {"name": "RESOURCE_NOT_FOUND"}
         if method == "GET" and len(parts) == 4:
-            return 200, d
+            return 200, d | {"links": _links(d)}
         act = parts[4] if len(parts) > 4 else ""
         d["update_time"] = _now()
         if act == "provide-evidence":
+            if d["status"] != "WAITING_FOR_SELLER_RESPONSE":
+                return 422, {"name": "UNPROCESSABLE_ENTITY", "details": [{"issue": "ACTION_NOT_ALLOWED_IN_CURRENT_DISPUTE_STATE"}]}
             d["evidences"] += body.get("evidences", [])
             d["status"] = "UNDER_REVIEW"
+        elif act == "provide-supporting-info":
+            if d["status"] != "UNDER_REVIEW":
+                return 422, {"name": "UNPROCESSABLE_ENTITY", "details": [{"issue": "ACTION_NOT_ALLOWED_IN_CURRENT_DISPUTE_STATE"}]}
+            d.setdefault("supporting_info", []).append({"notes": body.get("notes", "")})
         elif act == "require-evidence":
             d["status"] = "WAITING_FOR_SELLER_RESPONSE"
         elif act == "accept-claim":

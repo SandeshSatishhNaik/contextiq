@@ -25,7 +25,7 @@ FEATURES = [
     {"n": 12, "name": "Bills & obligations", "system": "money", "where": "money",
      "what": "Bills, subscriptions, return windows and supplier payments, with checklists that tick themselves.", "status": "live"},
     {"n": 13, "name": "Dispute prevention", "system": "briefcase", "where": "business",
-     "what": "Catches invoice mismatches early, lines up both sides' claims, and answers PayPal disputes with briefcase evidence the seller approves.", "status": "live (PayPal Disputes API; full loop tested on the mock, list/get verified in sandbox)"},
+     "what": "Catches invoice mismatches early, lines up both sides' claims, and answers PayPal disputes with briefcase evidence the seller approves.", "status": "live (PayPal Disputes API, verified in sandbox)"},
     {"n": 14, "name": "Self-healing payments", "system": "payments", "where": "pay",
      "what": "If the connection drops, checks PayPal before retrying — never charges twice.", "status": "live"},
     {"n": 15, "name": "Adaptive home & smart cache", "system": "ai", "where": "home",

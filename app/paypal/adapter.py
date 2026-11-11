@@ -160,14 +160,21 @@ class PayPalClient:
     def get_dispute(self, dispute_id: str) -> dict:
         return self._request("GET", f"/v1/customer/disputes/{dispute_id}")
 
-    def provide_evidence(self, dispute_id: str, evidences: list[dict]) -> dict:
-        """Seller evidence. PayPal takes multipart/form-data with the JSON in a part named 'input'."""
-        r = self._http.post(f"/v1/customer/disputes/{dispute_id}/provide-evidence",
-                            headers={"Authorization": f"Bearer {self._access_token()}"},
-                            files={"input": (None, json.dumps({"evidences": evidences}), "application/json")})
+    def _multipart(self, path: str, payload: dict) -> dict:
+        """PayPal dispute uploads take multipart/form-data with the JSON in a part named 'input'."""
+        r = self._http.post(path, headers={"Authorization": f"Bearer {self._access_token()}"},
+                            files={"input": (None, json.dumps(payload), "application/json")})
         if r.status_code >= 400:
             raise PayPalError(r.status_code, r.text)
         return r.json() if r.content else {}
+
+    def provide_evidence(self, dispute_id: str, evidences: list[dict]) -> dict:
+        """Seller evidence, when PayPal asks for it (link rel 'provide_evidence')."""
+        return self._multipart(f"/v1/customer/disputes/{dispute_id}/provide-evidence", {"evidences": evidences})
+
+    def provide_supporting_info(self, dispute_id: str, notes: str) -> dict:
+        """Extra information while PayPal reviews the case (link rel 'provide_supporting_info')."""
+        return self._multipart(f"/v1/customer/disputes/{dispute_id}/provide-supporting-info", {"notes": notes[:2000]})
 
     def accept_claim(self, dispute_id: str, note: str) -> dict:
         return self._request("POST", f"/v1/customer/disputes/{dispute_id}/accept-claim",

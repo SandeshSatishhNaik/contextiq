@@ -1122,7 +1122,11 @@ async function drawDispute(id) {
         : `<div class="note bad">${esc(s.error)}</div>`;
       $("#ddecide") && ($("#ddecide").onclick = async () => {
         const x = await api(`/api/cases/${id}/dispute/sandbox-decide`, { body: { outcome: "SELLER_FAVOR" } });
-        if (x.ok) drawDispute(id); else $("#dresult").innerHTML += `<div class="note bad">${esc(x.error)}</div>`;
+        if (!x.ok) return ($("#dresult").innerHTML += `<div class="note bad">${esc(x.error)}</div>`);
+        if (x.outcome) return drawDispute(id);
+        $("#dresult").innerHTML = `<div class="note">PayPal's sandbox is deciding; this usually takes a minute or two. The result arrives by webhook.</div>
+          <button class="btn outline wide" id="drefresh">Check PayPal again</button>`;
+        $("#drefresh").onclick = async () => { await api("/api/disputes/sync", { method: "POST" }); drawDispute(id); };
       });
     });
     $("#daccept").onclick = async () => {

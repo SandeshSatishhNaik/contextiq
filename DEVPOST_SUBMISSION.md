@@ -27,11 +27,11 @@ Every call below is in `app/paypal/adapter.py` and runs against the real sandbox
 | PayPal API | Used for | Verified in sandbox |
 | --- | --- | --- |
 | OAuth 2.0 client credentials | Server-side access token | Yes |
-| Orders v2: create, get, capture | Checkout with itemized purchase units; capture only after the gateway allows it | Yes (order `8CF670070K108980B`, capture `6MX531807D070790B`) |
+| Orders v2: create, get, capture | Checkout with itemized purchase units; capture only after the gateway allows it | Yes (hosted demo: order `42072361WU062731N`, capture `8NK10720LK217045H`) |
 | Orders v2: Add Tracking (`/v2/checkout/orders/{id}/track`) | Seller shipment tracking attached to the capture | Yes |
 | Payments v2: refund | Seller-approved refunds, keyed per case and amount | Mock-tested |
-| Disputes v1: list, get, provide-evidence, accept-claim; sandbox require-evidence and adjudicate | Answering buyer disputes from the briefcase | List/get yes; full loop mock-tested |
-| Webhooks: signature verification, `CUSTOMER.DISPUTE.*`, `PAYMENT.CAPTURE.*` | Disputes and captures arrive as events; every event is verified with PayPal before it is applied | Webhook registered for the hosted demo |
+| Disputes v1: list, get, provide-evidence or provide-supporting-info (whichever PayPal's links allow), accept-claim; sandbox adjudicate | Answering buyer disputes from the briefcase | Yes: buyer's "item not received" case `PP-R-ZSX-10198838` on capture `8NK10720LK217045H` was matched, answered with the USPS tracking and agreed terms, and resolved `RESOLVED_SELLER_FAVOUR` |
+| Webhooks: signature verification, `CUSTOMER.DISPUTE.*`, `PAYMENT.CAPTURE.*` | Disputes and captures arrive as events; every event is verified with PayPal before it is applied | Yes: the dispute reached the hosted demo by verified webhook |
 | PayPal JS SDK Buttons | Buyer approval in a PayPal popup | Yes |
 | PayPal's official MCP server (`@paypal/mcp`) | Runs next to ContextIQ's own MCP server in Claude Desktop (`mcp/claude_desktop_config.example.json`) | Config provided |
 
@@ -52,16 +52,17 @@ Not used yet: Invoicing v2 (adapter methods exist, not wired into the app), Payo
 
 ## How we built it
 
-FastAPI and SQLAlchemy (SQLite), vanilla JavaScript front end, LangGraph, scikit-learn, the `cryptography` library (Ed25519 signatures for QR codes and agent messages, SHA-256 fingerprints for agreements and evidence), `webauthn` for passkeys, deployed on Render. 34 end-to-end tests run the full API in mock mode.
+FastAPI and SQLAlchemy (SQLite), vanilla JavaScript front end, LangGraph, scikit-learn, the `cryptography` library (Ed25519 signatures for QR codes and agent messages, SHA-256 fingerprints for agreements and evidence), `webauthn` for passkeys, deployed on Render. 35 end-to-end tests run the full API in mock mode.
 
 ## What's real and what's simulated
 
-- **Real:** PayPal sandbox orders, captures, tracking and dispute calls; the security gateway; signed QR codes; the trained models.
+- **Real:** PayPal sandbox orders, captures, tracking, dispute responses and webhooks; the security gateway; signed QR codes; the trained models.
 - **Simulated:** merchants, suppliers and their data; carrier delivery events (PayPal tracking is real, the "delivered" scan is not); a mock mode for offline demos.
 - **Demo shortcuts:** identity is a demo header (no login); the step-up code is shown on screen instead of sent to a phone (passkeys also work); the sandbox "decide" button stands in for PayPal's review team.
 
 ## Challenges we ran into
 
+- Our first sandbox dispute skipped straight to PayPal review, where `provide-evidence` is not allowed. The agent now reads PayPal's `links` on the dispute and uses whichever response PayPal accepts at that moment.
 - A capture attempted before the buyer approved on PayPal used up the one-time approval. We found it in a real sandbox run and fixed the order of checks.
 - Under the current FastAPI, our database commit ran after the response was sent, so a fast client could read stale payment state. Our in-process tests could not see it; an HTTP end-to-end run in a fresh clone did. Fixed by committing before the response.
 - Keeping AI output away from money: the model can draft, explain and recommend, but only the gateway turns an approved proposal into a PayPal call.

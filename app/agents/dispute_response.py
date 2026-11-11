@@ -124,14 +124,36 @@ def submit(db: Session, case: Case, draft_hash: str) -> dict:
         return {"ok": False, "error": "nothing in the briefcase to send as evidence"}
     if draft_hash != dr["draft_hash"]:
         return {"ok": False, "error": "the draft changed since you reviewed it; review it again"}
-    did = dr["dispute"]["dispute_id"]
+    did, client = dr["dispute"]["dispute_id"], get_client()
+    # PayPal's links say which response the case accepts right now; follow them instead of guessing.
+    allowed = {link["rel"] for link in client.get_dispute(did).get("links", [])}
+    evidences = dr["payload"]["evidences"]
     try:
-        get_client().provide_evidence(did, dr["payload"]["evidences"])
+        if "provide_evidence" in allowed:
+            client.provide_evidence(did, evidences)
+            via = "provide-evidence"
+        elif "provide_supporting_info" in allowed:
+            client.provide_supporting_info(did, _as_notes(evidences))
+            via = "provide-supporting-info"
+        else:
+            return {"ok": False, "error": f"PayPal is not accepting seller input on this case right now ({sorted(allowed)})"}
     except PayPalError as exc:
         return {"ok": False, "error": f"PayPal did not accept the evidence ({exc.status}): {exc.body}"[:400]}
-    bc.add_event(db, case, "dispute_evidence_submitted", "seller", {"dispute_id": did, "draft_hash": draft_hash})
-    record(db, get_client().get_dispute(did))
-    return {"ok": True, "dispute_id": did, "submitted": [e["evidence_type"] for e in dr["payload"]["evidences"]]}
+    bc.add_event(db, case, "dispute_evidence_submitted", "seller", {"dispute_id": did, "draft_hash": draft_hash, "via": via})
+    record(db, client.get_dispute(did))
+    return {"ok": True, "dispute_id": did, "via": via, "submitted": [e["evidence_type"] for e in evidences]}
+
+
+def _as_notes(evidences: list[dict]) -> str:
+    """Supporting info is free text: carry the tracking details and notes over verbatim."""
+    out = []
+    for e in evidences:
+        for t in (e.get("evidence_info") or {}).get("tracking_info", []):
+            out.append(f"Proof of fulfillment: {t['carrier_name']} tracking {t['tracking_number']} "
+                       f"(registered with PayPal on the capture).")
+        if e.get("notes"):
+            out.append(e["notes"])
+    return " ".join(out)
 
 
 def accept(db: Session, case: Case, note: str) -> dict:
