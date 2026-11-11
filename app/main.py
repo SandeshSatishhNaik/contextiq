@@ -68,7 +68,7 @@ def db_dep():
         db.close()
 
 
-def user_dep(x_user_id: str = Header("alex"), db=Depends(db_dep)) -> User:
+def user_dep(x_user_id: str = Header("alex"), db=Depends(db_dep, scope="function")) -> User:
     u = db.get(User, x_user_id)
     if not u:
         raise HTTPException(401, "unknown user")
@@ -144,13 +144,13 @@ def config():
 
 
 @app.get("/api/users")
-def users(db=Depends(db_dep)):
+def users(db=Depends(db_dep, scope="function")):
     return [{"id": u.id, "name": u.name, "role": u.role, "business_name": u.business_name}
             for u in db.scalars(select(User)).all()]
 
 
 @app.post("/api/chat")
-def chat(body: ChatIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def chat(body: ChatIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from . import conversation
 
     return conversation.chat(db, user.id, body.message, body.case_id)
@@ -162,7 +162,7 @@ class VoiceIn(BaseModel):
 
 
 @app.post("/api/voice")
-def voice(body: VoiceIn, x_voice_token: str = Header(""), x_user_id: str = Header("alex"), db=Depends(db_dep)):
+def voice(body: VoiceIn, x_voice_token: str = Header(""), x_user_id: str = Header("alex"), db=Depends(db_dep, scope="function")):
     """For Siri Shortcuts / phone assistants. Read-only: answers questions, never moves money."""
     import os
 
@@ -182,7 +182,7 @@ def voice(body: VoiceIn, x_voice_token: str = Header(""), x_user_id: str = Heade
 
 # ----------------------------------------------------------- cart / checkout
 @app.post("/api/cart/analyze")
-def cart_analyze(body: CartIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def cart_analyze(body: CartIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from . import insights as ins
 
     ins.watch_cart(db, user.id, body.merchant, [i.model_dump() for i in body.items], body.currency, body.page_url)
@@ -192,7 +192,7 @@ def cart_analyze(body: CartIn, user: User = Depends(user_dep), db=Depends(db_dep
 
 
 @app.post("/api/checkout")
-def checkout(body: CartIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def checkout(body: CartIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     return commerce.start_checkout(db, user.id, merchant=body.merchant, items=[i.model_dump() for i in body.items],
                                    currency=body.currency, policy_text=body.policy_text, policy_url=body.policy_url,
                                    channel=body.channel, seller_id=body.seller_id,
@@ -200,7 +200,7 @@ def checkout(body: CartIn, user: User = Depends(user_dep), db=Depends(db_dep)):
 
 
 @app.post("/api/cases/{case_id}/capture")
-def capture(case_id: str, body: CaptureIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def capture(case_id: str, body: CaptureIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     r = commerce.complete_payment(db, user.id, case_id, body.approval_token, body.step_up_code, body.signals)
     if r.get("ok"):
         _after_paid(db, user.id, case_id)
@@ -235,7 +235,7 @@ def _after_paid(db, user_id: str, case_id: str) -> None:
 
 
 @app.get("/api/bills")
-def bills(user: User = Depends(user_dep), db=Depends(db_dep)):
+def bills(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     now = datetime.now(UTC)
     rows = db.scalars(select(Obligation).where(Obligation.owner_id == user.id, Obligation.status == "open",
                                                Obligation.kind.in_(["bill", "subscription", "supplier_payment", "emi"]))
@@ -250,7 +250,7 @@ def bills(user: User = Depends(user_dep), db=Depends(db_dep)):
 
 
 @app.post("/api/bills/{bill_id}/checkout")
-def bill_checkout(bill_id: str, user: User = Depends(user_dep), db=Depends(db_dep)):
+def bill_checkout(bill_id: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     o = db.get(Obligation, bill_id)
     if not o or o.owner_id != user.id or o.status != "open":
         raise HTTPException(404, "bill not found")
@@ -334,7 +334,7 @@ def run_autonomous_sweep(db, user_id: str):
 
 
 @app.get("/api/notices")
-def get_notices(user: User = Depends(user_dep), db=Depends(db_dep)):
+def get_notices(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     run_autonomous_sweep(db, user.id)
     rows = db.scalars(select(OutboundNotice).where(OutboundNotice.user_id == user.id).order_by(OutboundNotice.created_at.desc())).all()
     return [{"id": r.id, "recipient": r.recipient, "channel": r.channel, "notice_type": r.notice_type,
@@ -343,14 +343,14 @@ def get_notices(user: User = Depends(user_dep), db=Depends(db_dep)):
 
 
 @app.post("/api/notices/auto-sweep")
-def trigger_auto_sweep(user: User = Depends(user_dep), db=Depends(db_dep)):
+def trigger_auto_sweep(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     run_autonomous_sweep(db, user.id)
     rows = db.scalars(select(OutboundNotice).where(OutboundNotice.user_id == user.id)).all()
     return {"ok": True, "autonomous": True, "total_notices": len(rows)}
 
 
 @app.post("/api/notices")
-def create_notice(body: NoticeIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def create_notice(body: NoticeIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     notice = OutboundNotice(
         user_id=user.id,
         recipient=body.recipient,
@@ -378,7 +378,7 @@ def create_notice(body: NoticeIn, user: User = Depends(user_dep), db=Depends(db_
 
 
 @app.post("/api/reset")
-def reset_everything(db=Depends(db_dep)):
+def reset_everything(db=Depends(db_dep, scope="function")):
     """Reset all transaction state and re-seed clean starter data."""
     from .models import (
         AuditLog,
@@ -404,14 +404,14 @@ def reset_everything(db=Depends(db_dep)):
 
 
 @app.get("/api/recommendations")
-def recommendations(user: User = Depends(user_dep), db=Depends(db_dep)):
+def recommendations(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from . import recommend
 
     return recommend.build(db, user.id)
 
 
 @app.post("/api/cases/{case_id}/approve-mock")
-def approve_mock(case_id: str, db=Depends(db_dep)):
+def approve_mock(case_id: str, db=Depends(db_dep, scope="function")):
     """Mock mode only: stands in for the buyer clicking 'Pay' on PayPal's page."""
     if settings.paypal_env != "mock":
         raise HTTPException(400, "only in mock mode — approve on PayPal's page instead")
@@ -424,7 +424,7 @@ def approve_mock(case_id: str, db=Depends(db_dep)):
 
 
 @app.post("/api/cases/{case_id}/simulate-drop")
-def simulate_drop(case_id: str, body: CaptureIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def simulate_drop(case_id: str, body: CaptureIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     """Self-healing demo: the connection drops right after PayPal commits the capture."""
     if settings.paypal_env != "mock":
         raise HTTPException(400, "fault injection only in mock mode")
@@ -438,7 +438,7 @@ def simulate_drop(case_id: str, body: CaptureIn, user: User = Depends(user_dep),
 
 
 @app.post("/api/cases/{case_id}/delivered")
-def delivered(case_id: str, days_ago: int = 0, db=Depends(db_dep)):
+def delivered(case_id: str, days_ago: int = 0, db=Depends(db_dep, scope="function")):
     return commerce.record_delivery(db, case_id, datetime.now(UTC) - timedelta(days=days_ago))
 
 
@@ -451,7 +451,7 @@ class ClassifyIn(BaseModel):
 
 
 @app.post("/api/accounts/classify")
-def accounts_classify(body: ClassifyIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def accounts_classify(body: ClassifyIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .agents import accounts
 
     return accounts.classify_with_memory(db, user.id, body.payee, body.description, body.channel, body.amount)
@@ -463,7 +463,7 @@ class RememberIn(BaseModel):
 
 
 @app.post("/api/accounts/remember")
-def accounts_remember(body: RememberIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def accounts_remember(body: RememberIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .agents import accounts
 
     return accounts.remember(db, user.id, body.payee, body.purpose)
@@ -487,14 +487,14 @@ class ClaimIn(BaseModel):
 
 
 @app.post("/api/cases/{case_id}/claims")
-def add_claim(case_id: str, body: ClaimIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def add_claim(case_id: str, body: ClaimIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .agents import disputes
 
     return disputes.add_claim(db, db.get(Case, case_id), user.id, body.topic, body.value, body.note)
 
 
 @app.get("/api/cases/{case_id}/compare")
-def compare_claims(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep)):
+def compare_claims(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .agents import disputes
 
     if not bc.view_case(db, case_id, user.id):
@@ -503,7 +503,7 @@ def compare_claims(case_id: str, user: User = Depends(user_dep), db=Depends(db_d
 
 
 @app.get("/api/graph")
-def graph(user: User = Depends(user_dep), db=Depends(db_dep)):
+def graph(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .intelligence import graph as g
 
     return g.for_user(db, user.id)
@@ -516,21 +516,21 @@ class A2AStart(BaseModel):
 
 
 @app.post("/api/a2a/sessions")
-def a2a_start(body: A2AStart, user: User = Depends(user_dep), db=Depends(db_dep)):
+def a2a_start(body: A2AStart, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from . import a2a
 
     return a2a.run_session(db, body.case_id, user.id, tamper=body.tamper)
 
 
 @app.post("/api/a2a/sessions/{session_id}/sync")
-def a2a_sync(session_id: str, simulate_failure: bool = False, user: User = Depends(user_dep), db=Depends(db_dep)):
+def a2a_sync(session_id: str, simulate_failure: bool = False, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from . import a2a
 
     return a2a.sync_payment(db, session_id, simulate_failure)
 
 
 @app.post("/a2a/inbox")
-def a2a_inbox(env: dict, db=Depends(db_dep)):
+def a2a_inbox(env: dict, db=Depends(db_dep, scope="function")):
     """HTTP transport: another ContextIQ instance can deliver signed envelopes here."""
     from . import a2a
     from .models import AgentKey
@@ -543,7 +543,7 @@ def a2a_inbox(env: dict, db=Depends(db_dep)):
 
 
 @app.post("/api/a2a/rotate")
-def a2a_rotate(user: User = Depends(user_dep), db=Depends(db_dep)):
+def a2a_rotate(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from . import a2a
 
     k = a2a.rotate_key(db, user.id, "seller" if user.role in ("merchant", "supplier") else "buyer")
@@ -551,14 +551,14 @@ def a2a_rotate(user: User = Depends(user_dep), db=Depends(db_dep)):
 
 
 @app.get("/api/kg/retrieve")
-def kg_retrieve(q: str, user: User = Depends(user_dep), db=Depends(db_dep)):
+def kg_retrieve(q: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .intelligence import kg
 
     return kg.build(db).retrieve(q, user.id)
 
 
 @app.get("/api/kg/as-of")
-def kg_as_of(case_id: str, at: str, user: User = Depends(user_dep), db=Depends(db_dep)):
+def kg_as_of(case_id: str, at: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from datetime import datetime as dt
 
     from .intelligence import kg
@@ -571,7 +571,7 @@ def kg_as_of(case_id: str, at: str, user: User = Depends(user_dep), db=Depends(d
 
 
 @app.get("/api/kg/contradictions")
-def kg_contradictions(user: User = Depends(user_dep), db=Depends(db_dep)):
+def kg_contradictions(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .intelligence import kg
 
     g = kg.build(db)
@@ -605,21 +605,21 @@ def plugin_registry():
 
 # ---------------------------------------------------------------- passkeys
 @app.get("/api/passkeys/status")
-def passkey_status(user: User = Depends(user_dep), db=Depends(db_dep)):
+def passkey_status(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .security import passkeys
 
     return {"has_passkey": passkeys.has_passkey(db, user.id), "rp_id": passkeys.RP_ID}
 
 
 @app.post("/api/passkeys/register/options")
-def passkey_reg_options(user: User = Depends(user_dep), db=Depends(db_dep)):
+def passkey_reg_options(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .security import passkeys
 
     return passkeys.registration_options(db, user)
 
 
 @app.post("/api/passkeys/register/verify")
-def passkey_reg_verify(credential: dict, user: User = Depends(user_dep), db=Depends(db_dep)):
+def passkey_reg_verify(credential: dict, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .security import passkeys
 
     try:
@@ -634,7 +634,7 @@ class PasskeyAuthIn(BaseModel):
 
 
 @app.post("/api/passkeys/auth/options")
-def passkey_auth_options(body: PasskeyAuthIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def passkey_auth_options(body: PasskeyAuthIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .security import passkeys
 
     try:
@@ -644,7 +644,7 @@ def passkey_auth_options(body: PasskeyAuthIn, user: User = Depends(user_dep), db
 
 
 @app.post("/api/passkeys/auth/verify")
-def passkey_auth_verify(body: PasskeyAuthIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def passkey_auth_verify(body: PasskeyAuthIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .security import passkeys
 
     try:
@@ -667,7 +667,7 @@ class SetupIn(BaseModel):
 
 
 @app.get("/api/profile")
-def profile(user: User = Depends(user_dep), db=Depends(db_dep)):
+def profile(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .models import Budget
 
     b = db.scalar(select(Budget).where(Budget.user_id == user.id, Budget.category == "total"))
@@ -684,7 +684,7 @@ class BalanceIn(BaseModel):
 
 
 @app.post("/api/balance")
-def set_balance(body: BalanceIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def set_balance(body: BalanceIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     user.available_balance = max(0.0, round(float(body.balance), 2))
     user.balance_source = "user_entered"
     db.commit()
@@ -696,14 +696,14 @@ class PayPalAccountIn(BaseModel):
 
 
 @app.post("/api/profile/paypal")
-def set_paypal_account(body: PayPalAccountIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def set_paypal_account(body: PayPalAccountIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     user.paypal_email = body.email.strip()
     db.commit()
     return {"ok": True, "paypal_email": user.paypal_email}
 
 
 @app.post("/api/profile/setup")
-def profile_setup(body: SetupIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def profile_setup(body: SetupIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .models import Budget
 
     if body.uses not in ("personal", "business", "both"):
@@ -727,7 +727,7 @@ def profile_setup(body: SetupIn, user: User = Depends(user_dep), db=Depends(db_d
 
 @app.get("/api/insights")
 def insights(hour: int | None = None, weekday: int | None = None, lat: float | None = None, lon: float | None = None,
-             account: str | None = None, user: User = Depends(user_dep), db=Depends(db_dep)):
+             account: str | None = None, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from . import insights as ins
     from .context import decide
 
@@ -741,7 +741,7 @@ def insights(hour: int | None = None, weekday: int | None = None, lat: float | N
 
 
 @app.get("/api/cart/watch")
-def cart_watch(user: User = Depends(user_dep), db=Depends(db_dep)):
+def cart_watch(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .models import CartItem, PriceObservation
 
     items = db.scalars(select(CartItem).where(CartItem.user_id == user.id, CartItem.active.is_(True))).all()
@@ -768,12 +768,12 @@ def features():
 
 # ------------------------------------------------------------------- cases
 @app.get("/api/cases")
-def cases(user: User = Depends(user_dep), db=Depends(db_dep)):
+def cases(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     return helpdesk.list_cases(db, user.id)
 
 
 @app.get("/api/cases/{case_id}")
-def case_view(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep)):
+def case_view(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     v = bc.view_case(db, case_id, user.id)
     if not v:
         raise HTTPException(404, "not found or not permitted")
@@ -784,13 +784,13 @@ def case_view(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep)):
 
 
 @app.post("/api/cases/{case_id}/investigate")
-def investigate(case_id: str, claim: str = "payment not received", user: User = Depends(user_dep), db=Depends(db_dep)):
+def investigate(case_id: str, claim: str = "payment not received", user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     case = db.get(Case, case_id)
     return commerce.payment_investigation(db, case, supplier_claim=claim)
 
 
 @app.get("/api/cases/{case_id}/refund-eligibility")
-def refund_elig(case_id: str, issue: str = "", user: User = Depends(user_dep), db=Depends(db_dep)):
+def refund_elig(case_id: str, issue: str = "", user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     return commerce.refund_eligibility(db, db.get(Case, case_id), issue)
 
 
@@ -802,14 +802,14 @@ class RefundIn(BaseModel):
 
 
 @app.post("/api/cases/{case_id}/refund/approve")
-def refund_approve(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep)):
+def refund_approve(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     """Seller explicitly approves a refund on their case."""
     case = db.get(Case, case_id)
     return {"approval_token": gateway.issue_approval(db, user_id=user.id, case=case, action="refund").token}
 
 
 @app.post("/api/cases/{case_id}/refund")
-def refund(case_id: str, body: RefundIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def refund(case_id: str, body: RefundIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     if body.step_up_code and body.approval_token:
         gateway.pass_step_up(db, body.approval_token, body.step_up_code)
     return commerce.merchant_refund(db, user.id, case_id, body.approval_token or "", body.amount, body.reason)
@@ -821,7 +821,7 @@ class ResolutionIn(BaseModel):
 
 
 @app.post("/api/cases/{case_id}/resolution")
-def case_resolution(case_id: str, body: ResolutionIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def case_resolution(case_id: str, body: ResolutionIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     case = db.get(Case, case_id)
     if not case:
         raise HTTPException(404, "Case not found")
@@ -830,7 +830,7 @@ def case_resolution(case_id: str, body: ResolutionIn, user: User = Depends(user_
 
 # --------------------------------------------------------------- webhooks
 @app.post("/api/webhooks/paypal")
-async def paypal_webhook(request: Request, db=Depends(db_dep)):
+async def paypal_webhook(request: Request, db=Depends(db_dep, scope="function")):
     event = json.loads(await request.body())
     if not get_client().verify_webhook(dict(request.headers), event):
         sentra.ingest(db, kind="webhook_signature_invalid", severity="warning", detail={"id": event.get("id")})
@@ -858,7 +858,7 @@ def _apply_webhook(db, event: dict) -> dict:
 
 
 @app.post("/api/mock/deliver-webhooks")
-def deliver_mock_webhooks(db=Depends(db_dep)):
+def deliver_mock_webhooks(db=Depends(db_dep, scope="function")):
     """Mock mode: delivers queued PayPal events through the real handler (twice, to prove dedupe)."""
     from .paypal import mock
 
@@ -878,7 +878,7 @@ class QRIn(BaseModel):
 
 
 @app.post("/api/qr/create")
-def qr_create(body: QRIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def qr_create(body: QRIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     return commerce.merchant_create_qr(db, user.id, items=[i.model_dump() for i in body.items], currency=body.currency,
                                        policy_text=body.policy_text)
 
@@ -888,7 +888,7 @@ class ScanIn(BaseModel):
 
 
 @app.post("/api/qr/scan")
-def qr_scan(body: ScanIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def qr_scan(body: ScanIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     return commerce.buyer_scan_qr(db, user.id, body.token)
 
 
@@ -900,13 +900,13 @@ class InvoiceIn(BaseModel):
 
 
 @app.post("/api/invoice/check")
-def invoice_check(body: InvoiceIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def invoice_check(body: InvoiceIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     return commerce.check_invoice(db, user.id, supplier=body.supplier, po=body.po, invoice=body.invoice, text=body.text)
 
 
 # ------------------------------------------------------------- finance
 @app.get("/api/budget")
-def budget(user: User = Depends(user_dep), db=Depends(db_dep)):
+def budget(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     return budget_agent.status(db, user.id) | {"alerts": budget_agent.overspend_alerts(db, user.id),
                                                "forecast_30d": budget_agent.forecast(db, user.id),
                                                "subscriptions": budget_agent.detect_subscriptions(db, user.id)}
@@ -918,7 +918,7 @@ class BudgetIn(BaseModel):
 
 
 @app.post("/api/budget")
-def set_budget(body: BudgetIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def set_budget(body: BudgetIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     b = db.scalar(select(Budget).where(Budget.user_id == user.id, Budget.category == body.category))
     if b:
         b.limit = body.limit
@@ -928,12 +928,12 @@ def set_budget(body: BudgetIn, user: User = Depends(user_dep), db=Depends(db_dep
 
 
 @app.get("/api/whatif")
-def whatif(amount: float, user: User = Depends(user_dep), db=Depends(db_dep)):
+def whatif(amount: float, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     return budget_agent.what_if(db, user.id, amount)
 
 
 @app.get("/api/obligations")
-def obligations(user: User = Depends(user_dep), db=Depends(db_dep)):
+def obligations(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .intelligence.reasoning import temporal
 
     rows = db.scalars(select(Obligation).where(Obligation.owner_id == user.id, Obligation.status == "open")
@@ -949,7 +949,7 @@ class InvestIn(BaseModel):
 
 
 @app.post("/api/invest")
-def invest(body: InvestIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def invest(body: InvestIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     return investment.advise(db, user.id, body.amount, body.horizon_months)
 
 
@@ -964,7 +964,7 @@ class RiskIn(BaseModel):
 
 
 @app.post("/api/fraud/score")
-def fraud(body: RiskIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def fraud(body: RiskIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     return ctx_agent.assess_risk(db, user.id, body.payee, body.amount, text=body.text, new_device=body.new_device,
                                  ip_country_mismatch=body.ip_country_mismatch,
                                  payee_changed_recently=body.payee_changed_recently,
@@ -973,7 +973,7 @@ def fraud(body: RiskIn, user: User = Depends(user_dep), db=Depends(db_dep)):
 
 # ---------------------------------------------------- adaptive UI + metrics
 @app.get("/api/home")
-def home(user: User = Depends(user_dep), db=Depends(db_dep)):
+def home(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .intelligence.reasoning import temporal
 
     boosts = {}
@@ -996,13 +996,13 @@ class FeedbackIn(BaseModel):
 
 
 @app.post("/api/feedback")
-def feedback(body: FeedbackIn, user: User = Depends(user_dep), db=Depends(db_dep)):
+def feedback(body: FeedbackIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     adaptive.feedback(db, user.id, body.context, body.arm, body.reward)
     return {"ok": True}
 
 
 @app.get("/api/metrics")
-def metrics(db=Depends(db_dep)):
+def metrics(db=Depends(db_dep, scope="function")):
     from .config import MODEL_DIR
 
     report = json.loads((MODEL_DIR / "report.json").read_text()) if (MODEL_DIR / "report.json").exists() else {}
@@ -1021,7 +1021,7 @@ def cache_toggle(state: str):
 
 
 @app.get("/api/audit")
-def audit(user: User = Depends(user_dep), db=Depends(db_dep)):
+def audit(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     rows = db.scalars(select(AuditLog).where(AuditLog.actor == user.id).order_by(AuditLog.created_at.desc())).all()
     return [{"action": a.action, "case_id": a.case_id, "verdict": a.verdict, "reasons": a.reasons,
              "at": a.created_at.isoformat()} for a in rows[:50]]
