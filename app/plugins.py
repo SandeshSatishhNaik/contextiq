@@ -90,6 +90,9 @@ register(Plugin("contextiq.risk", "ContextIQ", {"assess_payment_request": S(paye
                 {"risk.read"}, "user session", 30))
 register(Plugin("contextiq.invoices", "ContextIQ", {"check_invoice": S(po="object", invoice="object")},
                 {"invoice.read"}, "user session", 30))
+register(Plugin("contextiq.disputes", "ContextIQ",
+                {"list_disputes_for_me": S(), "draft_dispute_response": S(case_id="string")},
+                {"cases.read"}, "user session", 30))
 register(Plugin("contextiq.assistant", "ContextIQ", {"ask": S(question="string")}, {"chat"}, "user session", 30))
 register(Plugin("paypal.rest", "PayPal", {"orders": {}, "captures": {}, "refunds": {}, "invoicing": {}, "webhooks": {}},
                 {"payments:execute"}, "OAuth 2.0 client credentials (server-side only)", 120, external=True,

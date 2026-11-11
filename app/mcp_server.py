@@ -81,6 +81,31 @@ def assess_payment_request(payee: str, amount: float, message: str) -> dict:
 
 
 @mcp.tool()
+def list_disputes_for_me() -> list[dict]:
+    """PayPal disputes on this user's sales, synced from PayPal's Disputes API and matched to purchases."""
+    from .agents import dispute_response
+    return plugins.call("contextiq.disputes", "list_disputes_for_me", USER, {},
+                        _with_db(lambda db: [d for d in dispute_response.sync(db) if d["case_id"]]))
+
+
+@mcp.tool()
+def draft_dispute_response(case_id: str) -> dict:
+    """Draft a PayPal dispute response from the purchase's evidence (tracking, agreed terms) with a
+    fight-or-accept recommendation. Read-only: the seller approves and sends it in ContextIQ."""
+    from . import briefcase as bc
+    from .agents import dispute_response
+    from .models import Case
+
+    def impl(db, case_id):
+        v = bc.view_case(db, case_id, USER)
+        if not v or v["role"] != "seller":
+            return {"error": "not found, or you are not the seller on this purchase"}
+        d = dispute_response.draft(db, db.get(Case, case_id))
+        return d | {"next_step": "Review and approve this draft in ContextIQ; this tool never sends anything."}
+    return plugins.call("contextiq.disputes", "draft_dispute_response", USER, {"case_id": case_id}, _with_db(impl))
+
+
+@mcp.tool()
 def ask(question: str) -> str:
     """Ask ContextIQ anything about payments, refunds, bills or budget."""
     from . import orchestrator

@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "paypal": {
+      "command": "npx",
+      "args": ["-y", "@paypal/mcp", "--tools=all"],
+      "env": {
+        "PAYPAL_ACCESS_TOKEN": "<output of: python scripts/paypal_access_token.py>",
+        "PAYPAL_ENVIRONMENT": "SANDBOX"
+      }
+    },
+    "contextiq": {
+      "command": "python",
+      "args": ["-m", "app.mcp_server"],
+      "cwd": "<absolute path to this repository>",
+      "env": { "CONTEXTIQ_USER": "brightmart" }
+    }
+  }
+}
