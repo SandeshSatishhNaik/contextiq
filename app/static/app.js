@@ -3,7 +3,9 @@
    Internals (experts, models, signatures, audit) live on the separate judges' console at /console. */
 const $ = (s, el = document) => el.querySelector(s);
 const app = $("#app");
-const S = { user: "alex", config: {}, profile: null, account: sessionStorage.getItem("ciq-account") || null, pos: null,
+const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* private mode */ } } };
+const S = { user: store.get("ciq-user") === "brightmart" ? "brightmart" : "alex", config: {}, profile: null, account: sessionStorage.getItem("ciq-account") || null, pos: null,
   chat: [], cart: null, checkout: null, home: null, cards: [], tab: "home" };
 const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -611,7 +613,7 @@ function payButton(el, create = () => api("/api/checkout", { body: S.cart })) {
   if (S.config.paypal_env !== "mock" && S.config.paypal_client_id) {
     el.innerHTML = `<div id="pp-buttons" style="margin-top:10px"></div>
       <div style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center">
-        PayPal Sandbox popup issue? <a href="#" id="direct-pp-link" style="color:var(--brand);text-decoration:underline">Open in fresh tab</a> · approved there? <a href="#" id="finish-pp-btn" style="color:var(--brand);text-decoration:underline">Finish payment</a>
+        PayPal Sandbox popup issue? <a href="#" id="direct-pp-link" style="color:var(--blue);text-decoration:underline">Open in fresh tab</a> · approved there? <a href="#" id="finish-pp-btn" style="color:var(--blue);text-decoration:underline">Finish payment</a>
       </div>`;
     loadPayPalSdk().then(() => window.paypal.Buttons({
       style: { layout: "vertical", shape: "pill", label: "pay" },
@@ -681,6 +683,7 @@ async function complete(code) {
   }
   if (!r.ok) { openSheet(`<h2>Payment not completed</h2><div class="note bad">${esc(r.error || (r.reasons || []).join("; "))}</div><p class="muted">You haven't been charged.</p>`); return; }
   sessionStorage.removeItem("ciq-checkout");
+  store.set("ciq-tour-case", co.case_id); refreshTour();
   if (S.config.paypal_env === "mock") api("/api/mock/deliver-webhooks", { method: "POST" }).catch(() => {});
   pushNote("Payment complete", `${money(S.checkout?.amount ?? S.cart?.items?.reduce((s, i) => s + i.unit_price * (i.quantity || 1), 0))} to ${S.cart?.merchant || "the store"} from your ${S.cart?.purpose || ""} account. Return deadlines are now on your home page.`);
   openSheet(`<svg class="paid-check" viewBox="0 0 84 84"><circle cx="42" cy="42" r="40"/><path d="M26 43l11 11 21-23"/></svg>
@@ -875,7 +878,7 @@ views.notices = async () => {
       <div class="enter" style="padding:14px 16px;border:1px solid var(--line);border-radius:12px;margin-bottom:12px;background:var(--paper)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <div style="display:flex;align-items:center;gap:8px">
-            <span class="badge" style="background:#EBF5FB;color:var(--brand);font-weight:700;padding:3px 8px;border-radius:6px;font-size:11px;text-transform:uppercase">${esc(n.notice_type.replace('_', ' '))}</span>
+            <span class="badge" style="background:#EBF5FB;color:var(--blue);font-weight:700;padding:3px 8px;border-radius:6px;font-size:11px;text-transform:uppercase">${esc(n.notice_type.replace('_', ' '))}</span>
             <b style="font-size:14px;color:var(--ink)">To: ${esc(n.recipient)}</b>
           </div>
           ${n.amount ? `<span class="num" style="font-weight:700;font-size:15px;color:var(--ink)">${money(n.amount)}</span>` : ''}
@@ -1254,7 +1257,83 @@ async function go(name) {
   try { await views[name](); } catch (e) { app.innerHTML = `<h1>That didn't load</h1><div class="note bad">${esc(e.message)}</div><p class="muted">Check that ContextIQ is running, then reload the page.</p>`; }
   app.focus({ preventScroll: true });
 }
-document.querySelectorAll(".links [data-tab]").forEach((b) => b.onclick = () => go(b.dataset.tab));
+document.querySelectorAll(".links [data-tab]").forEach((b) => b.onclick = () => { $("#moremenu").hidden = true; go(b.dataset.tab); });
+$("#morebtn").onclick = (e) => { e.stopPropagation(); const m = $("#moremenu"); m.hidden = !m.hidden; $("#morebtn").setAttribute("aria-expanded", String(!m.hidden)); };
+document.addEventListener("click", (e) => { if (!e.target.closest(".more-wrap")) { $("#moremenu").hidden = true; $("#morebtn").setAttribute("aria-expanded", "false"); } });
+$("#tourbtn").onclick = () => { $("#moremenu").hidden = true; store.set("ciq-tour", "1"); refreshTour(); };
+
+/* ------------------------------------------------------- role: buyer or seller */
+function markRole() {
+  document.querySelectorAll("#role [data-user]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.user === S.user)));
+  document.body.classList.toggle("seller", S.user === "brightmart");
+}
+async function setUser(u, view) {
+  if (u === S.user && !view) return;
+  S.user = u; store.set("ciq-user", u);
+  Object.assign(S, { chat: [], cart: null, checkout: null, home: null, cards: [] });
+  S.profile = await api("/api/profile");
+  $("#me").textContent = S.profile.name.split(" ").map((w) => w[0]).join("").slice(0, 2);
+  markRole();
+  if (sheet.open) sheet.close();
+  await go(view || S.tab || "home");
+  refreshTour();
+}
+document.querySelectorAll("#role [data-user]").forEach((b) => b.onclick = () => setUser(b.dataset.user));
+
+/* ------------------------------------------------- judge tour: the hero flow, live */
+const TOUR = [
+  { t: "Pay with PayPal", who: "alex", hint: "Cart → Pay with PayPal, approve in the PayPal popup" },
+  { t: "Seller ships", who: "brightmart", hint: "Open the purchase → Mark shipped; tracking goes to PayPal" },
+  { t: "Buyer disputes at PayPal", who: "alex", hint: "As the sandbox buyer, report the item as not received" },
+  { t: "Answer from the briefcase", who: "brightmart", hint: "Prepare a response, review it, approve & send" },
+  { t: "PayPal decides", who: "brightmart", hint: "Sandbox: ask PayPal to decide" },
+];
+async function tourProgress() {
+  const id = store.get("ciq-tour-case");
+  if (!id) return { done: 0 };
+  const as = { headers: { "X-User-Id": "alex" } };
+  try {
+    const v = await (await fetch(`/api/cases/${id}`, as)).json();
+    if (!v.case) return { done: 0 };
+    const ev = new Set((v.events || []).map((e) => e.type));
+    const d = (await (await fetch(`/api/cases/${id}/dispute`, as)).json()).dispute;
+    let done = v.case.paypal_capture_id ? 1 : 0;
+    if (done && ev.has("shipped")) done = 2;
+    if (done === 2 && d) done = 3;
+    if (done === 3 && ev.has("dispute_evidence_submitted")) done = 4;
+    if (done === 4 && d.status === "RESOLVED") done = 5;
+    return { done, id, outcome: d?.dispute_outcome?.outcome_code };
+  } catch { return { done: 0 }; }
+}
+let tourTimer;
+async function refreshTour() {
+  const bar = $("#tour");
+  clearInterval(tourTimer);
+  if (store.get("ciq-tour") !== "1") { bar.hidden = true; return; }
+  const p = await tourProgress();
+  const next = TOUR[p.done];
+  bar.hidden = false;
+  bar.innerHTML = `<div class="tour-in">
+      <b class="tour-title">Judge tour</b>
+      <ol class="tour-steps">${TOUR.map((s, i) => `<li class="${i < p.done ? "done" : i === p.done ? "now" : ""}"><span>${i < p.done ? "✓" : i + 1}</span>${esc(s.t)}</li>`).join("")}</ol>
+      <div class="tour-next">${next ? `<span class="tour-hint">${esc(next.hint)}</span>
+        <button class="btn primary tour-go" id="tourgo">${esc(next.who === S.user ? "Go" : `Switch to ${next.who === "alex" ? "buyer" : "seller"}`)}</button>`
+        : `<span class="tour-hint ok">PayPal decided: ${esc((p.outcome || "resolved").replaceAll("_", " ").toLowerCase())}</span>`}</div>
+      <button class="x tour-x" id="tourx" aria-label="Close the tour">×</button>
+    </div>`;
+  $("#tourx").onclick = () => { store.set("ciq-tour", null); refreshTour(); };
+  if ($("#tourgo")) $("#tourgo").onclick = async () => {
+    if (next.who !== S.user) await setUser(next.who);
+    if (p.done === 0) return go("cart");
+    if (p.done === 2) {
+      if (S.config.paypal_env === "mock") { await api(`/api/mock/open-dispute/${p.id}`, { method: "POST" }); return refreshTour(); }
+      return window.open("https://www.sandbox.paypal.com/myaccount/activities/", "_blank", "noopener");
+    }
+    if (p.done === 3) await api("/api/disputes/sync", { method: "POST" }).catch(() => {});
+    await go("history"); openCase(p.id);
+  };
+  if (p.done < 5) tourTimer = setInterval(refreshTour, 15000);
+}
 function cartFromUrl() {
   const p = new URLSearchParams(location.search).get("cart"); if (!p) return null;
   try { return JSON.parse(decodeURIComponent(escape(atob(p)))); } catch { return null; }
@@ -1266,8 +1345,17 @@ function cartFromUrl() {
   setupVoice();
   if (S.profile.location_ok && navigator.geolocation)
     navigator.geolocation.getCurrentPosition((pos) => { S.pos = { lat: pos.coords.latitude, lon: pos.coords.longitude }; }, () => {}, { maximumAge: 900000, timeout: 5000 });
-  if (!S.profile.setup_done) { onboarding(); return; }
   const qs = new URLSearchParams(location.search);
+  markRole();
+  if (qs.get("demo") === "1") {
+    store.set("ciq-tour", "1");
+    if (!S.profile.setup_done) {  // judges skip onboarding; defaults match the seeded profile
+      await api("/api/profile/setup", { body: { uses: "both", goals: ["deals"], location_ok: false, monthly_budget: 1900 } });
+      S.profile = await api("/api/profile");
+    }
+  }
+  refreshTour();
+  if (!S.profile.setup_done) { onboarding(); return; }
   if (qs.get("approved")) {
     S.checkout = JSON.parse(sessionStorage.getItem("ciq-checkout") || "null");
     await go("home"); if (S.checkout) { openSheet(`<ul class="steps"><li class="done">Approved on PayPal</li><li class="now">Completing payment</li></ul>`); complete(); }

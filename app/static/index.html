@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/app.css?v=3">
 </head>
 <body>
 <header class="nav" id="nav" hidden>
@@ -19,11 +19,22 @@
       <button data-tab="home">Home</button>
       <button data-tab="cart">Cart</button>
       <button data-tab="budget">Budget</button>
-      <button data-tab="invest">Invest</button>
+      <button data-tab="invest" class="minor">Invest</button>
       <button data-tab="history">History</button>
-      <button data-tab="notices">1-Way Notices</button>
+      <div class="more-wrap">
+        <button class="more-btn" id="morebtn" type="button" aria-expanded="false" aria-haspopup="true">More</button>
+        <div class="dropdown more-menu" id="moremenu" hidden>
+          <button data-tab="notices">1-Way Notices</button>
+          <a href="/console">Under the hood: agents, models, audit</a>
+          <button id="tourbtn" type="button">Judge tour</button>
+        </div>
+      </div>
     </nav>
     <div class="nav-right">
+      <div class="acct role" id="role" role="group" aria-label="Viewing as">
+        <button data-user="alex" aria-pressed="true">Buyer</button>
+        <button data-user="brightmart" aria-pressed="false">Seller</button>
+      </div>
       <div class="acct" id="acct" role="group" aria-label="Active account"></div>
       <button class="nav-icon" id="mic" aria-label="Ask by voice" aria-pressed="false"></button>
       <div class="bell-wrap">
@@ -35,6 +46,7 @@
   </div>
 </header>
 
+<div class="tour" id="tour" hidden></div>
 <main id="app" tabindex="-1"></main>
 
 <button class="ask-fab" id="askfab" hidden><span class="dot"></span>Ask ContextIQ</button>
@@ -60,6 +72,6 @@
   </div>
 </dialog>
 
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=3"></script>
 </body>
 </html>

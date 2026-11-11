@@ -116,7 +116,8 @@ class CaptureIn(BaseModel):
 # ------------------------------------------------------------------ pages
 @app.get("/", response_class=HTMLResponse)
 def index():
-    return FileResponse(STATIC / "index.html")
+    # Always revalidate the page so a redeploy's new asset versions (?v=) are picked up.
+    return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 def _redirect_page(param: str, case: str) -> HTMLResponse:
