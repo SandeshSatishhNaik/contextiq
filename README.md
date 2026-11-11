@@ -6,6 +6,56 @@ what was promised, and fixes what goes wrong. AI proposes; deterministic code de
 
 Built for the PayPal AI Hackathon (Devpost).
 
+## What it can do
+
+### Before you pay
+- **Store terms reader:** extracts the return window, warranty and exclusions from a store's policy, using patterns plus a TF-IDF + LoRA sentence model. Instructions hidden in merchant pages are ignored.
+- **Cart intelligence:** the Chrome extension reads your cart only when you click it. It never edits the page or adds affiliate links.
+- **Price monitoring:** tracks prices it has actually seen and gives a buy-or-wait verdict checked against your budget.
+- **What-if budget check:** "can I afford this?" shows the cash left before payday after pending bills.
+- **Dynamic QR:** reads ContextIQ, UPI, EMVCo and PayPal.me codes and shows what each really contains. Shop QR codes are Ed25519-signed with a nonce and an expiry; replayed or tampered codes are blocked.
+- **Fraud and risk:** a gradient-boosted model, an Isolation Forest and rules decide when to ask for extra verification (a code or a passkey).
+- **Personal vs business:** files each payment to the right account, remembers your answer, and asks only when unsure.
+
+### Paying
+- **PayPal integration:** orders, approval, capture, refunds, invoicing, disputes and verified webhooks over PayPal's REST API.
+- **Self-healing payments:** after a dropped connection it checks PayPal before retrying, using idempotency keys, so it never charges twice.
+- **Security gateway:** every money action needs explicit approval, a permission check, a risk check and limits, and is written to an audit log. Step-up verification starts at $500 ($200 for a new payee).
+- **Online and in-person:** online checkouts and counter QR payments are handled differently.
+
+### After you pay
+- **Transaction briefcase:** an append-only record per purchase holding the agreement, receipts, terms, deadlines and evidence. Each item is labelled `verified`, `claimed` or `inferred`.
+- **Proof of intent:** a hash of exactly what you agreed to, compared with what actually happened.
+- **Refunds and replacements:** checks your entitlement (return window, replacement window, warranty), prepares the claim and tracks it. Only the seller can approve a refund.
+- **Dispute prevention:** catches invoice vs purchase-order mismatches early and lines up both sides' claims against the evidence.
+- **Bills and obligations:** bills, subscriptions, return deadlines and supplier payments, with checklists that tick themselves.
+
+### Money and planning
+- **Budgeting:** category spend and pace, recommendations, and a 30-day cash-flow forecast.
+- **Investment intelligence (optional):** checks whether money is truly spare and explains options with likely ranges. Company lookups need a free Alpha Vantage key. Education, not advice.
+- **1-way notices:** send payment reminders or notices to suppliers or clients.
+
+### Talking to it
+- **AI help desk:** ask in your own words by typing or voice. Routing is rules first, then a trained router, then an optional LLM (Groq or Claude) that only words answers and never moves money. Without a key it falls back to templates.
+- **Voice (read-only):** browser microphone or a Siri Shortcut. "Pay", "send" and "approve" are refused.
+- **Notifications:** the bell, pop-ups and optional device alerts.
+
+### Agents and integrations
+- **Buyer and seller agents:** each has a signed identity card and exchanges signed, replay-protected messages, sharing only its allowed fields.
+- **MCP server:** seven read-only tools for Claude Desktop or any MCP client.
+- **Passkeys:** fingerprint, face or device PIN instead of a step-up code.
+- **Phone assistants:** Siri App Intent and Android App Actions code is written but not built.
+
+### Under the hood
+- **Orchestrator:** LangGraph runs understand, retrieve, expert, explain.
+- **Shared reasoning:** uncertainty, counterfactual, causal and temporal reasoning, a transparent decision model and a temporal knowledge graph.
+- **Least-privilege memory:** each expert reads only the memory it is allowed to, so a seller never sees the buyer's budget.
+- **Adaptive layer:** a Thompson-sampling bandit reorders home shortcuts and reminder timing. It changes presentation only, never permissions.
+- **Smart cache:** repeated work is cached; payment state never is.
+- **Security telemetry:** a hash-chained SENTRA-style log with incident correlation and decoy responses for blocked sessions.
+
+The same list, with where each feature lives and how real it is, is in `app/features.py` and on the console page.
+
 ## Run it (2 minutes)
 
 ```bash
@@ -14,7 +64,7 @@ pip install -r requirements.txt
 cp .env.example .env            # PAYPAL_ENV=mock works offline; see "PayPal sandbox" below
 python -m app.ml.train          # trains every model with hyperparameter search (~7 min), writes MODEL_REPORT.md
 python run.py                   # http://localhost:8000
-pytest -q                       # 24 end-to-end tests
+pytest -q                       # 28 end-to-end tests
 python -m app.ml.lora_policy    # optional: LoRA policy model (PyTorch + peft, ~12 min on CPU)
 python -m app.ml.evaluate_unseen  # final test on unseen, shifted data (~4 min)
 ```
