@@ -500,3 +500,24 @@ body.seller .role button[aria-pressed="true"] { color: var(--biz); }
 .mt-row.blocked { background: #EAF6EF; } .mt-row.blocked b { color: var(--good); }
 .mt-row.allowed { background: #FDF1EF; } .mt-row.allowed b { color: var(--coral); }
 .mt-row .hint { display: block; margin-top: 2px; font-size: 13px; }
+
+/* ---------- loading skeleton ---------- */
+.skel { padding-top: 8px; }
+.skel-line, .skel-card { background: linear-gradient(90deg, #E8EDF2 0%, #F3F6F9 50%, #E8EDF2 100%); background-size: 200% 100%;
+  animation: skel 1.3s ease-in-out infinite; border-radius: 10px; }
+.skel-line { height: 18px; margin: 10px 0; } .skel-line.w40 { width: 40%; height: 30px; } .skel-line.w60 { width: 60%; }
+.skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; margin-top: 22px; }
+.skel-card { height: 150px; border-radius: 16px; }
+@keyframes skel { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skel-line, .skel-card { animation: none; } }
+/* ---------- dispute readiness + impact line ---------- */
+.ready { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; margin-bottom: 10px; }
+.ready-top { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; font-size: 14.5px; }
+.ready-top span { color: var(--mute); font-weight: 600; }
+.ready .hint { margin: 8px 0 0; }
+.cf-why { margin: 0 0 12px; }
+/* ---------- tour close on small screens ---------- */
+@media (max-width: 760px) {
+  .tour-in { position: relative; padding-right: 44px; }
+  .tour-x { position: absolute; top: 6px; right: 8px; }
+}

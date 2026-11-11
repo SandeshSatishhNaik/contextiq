@@ -50,6 +50,7 @@ Built for the PayPal AI Hackathon (Devpost) by team Avoflare. Licensed under Apa
 - **Transaction briefcase:** an append-only record per purchase holding the agreement, receipts, terms, deadlines and evidence. Each item is labelled `verified`, `claimed` or `inferred`.
 - **Proof of intent:** a hash of exactly what you agreed to, compared with what actually happened.
 - **Refunds and replacements:** checks your entitlement (return window, replacement window, warranty), prepares the claim and tracks it. Only the seller can approve a refund.
+- **Dispute readiness:** every sale shows the seller how many of the five proofs PayPal weighs are already on file, and what to do about any gap, before a dispute exists.
 - **PayPal dispute responses:** when a buyer opens a PayPal dispute, the seller's agent drafts the evidence from the briefcase (PayPal tracking, the agreed items and amount, the saved store terms), recommends fight or accept, and sends only the draft the seller approved.
 - **Dispute prevention:** catches invoice vs purchase-order mismatches early and lines up both sides' claims against the evidence.
 - **Bills and obligations:** bills, subscriptions, return deadlines and supplier payments, with checklists that tick themselves.

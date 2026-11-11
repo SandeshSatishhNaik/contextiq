@@ -498,6 +498,14 @@ def dispute_get(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep,
     return {"dispute": dispute_response.current(db, _my_case(db, case_id, user))}
 
 
+@app.get("/api/cases/{case_id}/dispute-readiness")
+def dispute_readiness(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
+    """Seller view: how well this sale is covered if the buyer ever disputes it."""
+    from .agents import dispute_response
+
+    return dispute_response.readiness(db, _seller_case(db, case_id, user))
+
+
 @app.post("/api/cases/{case_id}/dispute/draft")
 def dispute_draft(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     from .agents import dispute_response

@@ -66,6 +66,19 @@ def current(db: Session, case: Case) -> dict | None:
     return ev.content if ev else None
 
 
+def readiness(db: Session, case: Case) -> dict:
+    """Which of the proofs PayPal weighs in a dispute are already on file, before any dispute exists."""
+    has = lambda kind: db.scalar(select(Evidence.id).where(Evidence.case_id == case.id, Evidence.kind == kind)  # noqa: E731
+                                 .limit(1)) is not None
+    proofs = [{"label": "Payment captured by PayPal", "present": bool(case.paypal_capture_id), "fix": None},
+              {"label": "Buyer approved these exact items", "present": has("agreement"), "fix": None},
+              {"label": "Store terms saved at checkout", "present": has("policy_snapshot"), "fix": None},
+              {"label": "Buyer's signed spending mandate", "present": has("spending_mandate"), "fix": None},
+              {"label": "Tracking registered with PayPal", "present": has("paypal_tracking"),
+               "fix": "Mark the order shipped to send tracking to PayPal"}]
+    return {"proofs": proofs, "have": sum(p["present"] for p in proofs), "of": len(proofs)}
+
+
 def draft(db: Session, case: Case) -> dict:
     """Evidence pack from the briefcase, in PayPal's provide-evidence shape, plus a recommendation."""
     d = current(db, case)
@@ -119,11 +132,7 @@ def draft(db: Session, case: Case) -> dict:
     else:
         rec, why = "accept", "the briefcase lacks the evidence PayPal needs for this reason"
     payload = {"dispute_id": d["dispute_id"], "evidences": evidences}
-    proofs = [{"label": "Payment captured by PayPal", "present": bool(case.paypal_capture_id)},
-              {"label": "Buyer approved these exact items", "present": ag is not None},
-              {"label": "Store terms saved at checkout", "present": pol is not None},
-              {"label": "Buyer's signed spending mandate", "present": md is not None},
-              {"label": "Tracking registered with PayPal", "present": tracking is not None}]
+    proofs = readiness(db, case)["proofs"]
     return {"ok": True, "dispute": d, "recommendation": rec, "why": why, "facts": facts, "proofs": proofs,
             "payload": payload, "draft_hash": bc.content_hash(payload)}
 

@@ -1138,7 +1138,13 @@ async function drawDispute(id) {
   const box = $("#disputebox");
   const { dispute: d } = await api(`/api/cases/${id}/dispute`);
   if (!d) {
-    box.innerHTML = `<button class="btn outline wide" id="dsync">Check PayPal for disputes on this payment</button>`;
+    const rd = await api(`/api/cases/${id}/dispute-readiness`).catch(() => null);
+    const fix = rd?.proofs.find((p) => !p.present && p.fix);
+    box.innerHTML = `${rd ? `<div class="ready">
+        <div class="ready-top"><b>Dispute readiness</b><span>${rd.have} of ${rd.of} proofs on file</span></div>
+        <div class="meter" role="img" aria-label="${rd.have} of ${rd.of} proofs on file">${rd.proofs.map((p) => `<i class="${p.present ? "on" : ""}" title="${esc(p.label)}"></i>`).join("")}</div>
+        <p class="hint">${fix ? esc(fix.fix) + "." : "If the buyer opens a PayPal case, the response is already backed."}</p></div>` : ""}
+      <button class="btn outline wide" id="dsync">Check PayPal for disputes on this payment</button>`;
     $("#dsync").onclick = async () => { $("#dsync").disabled = true; await api("/api/disputes/sync", { method: "POST" }); drawDispute(id); };
     return;
   }
@@ -1174,6 +1180,9 @@ async function drawDispute(id) {
         <p>${esc(cap(r.why))}.</p>
         ${r.payload.evidences.map((e) => `<p class="hint">Goes to PayPal as ${esc(EVTYPE[e.evidence_type] || e.evidence_type)}.</p>`).join("")}
       </div>
+      <p class="hint cf-why">Card chargebacks alone are forecast to cost $33.79 billion worldwide in 2025
+        (<a href="https://www.mastercard.com/hk/en/news-and-trends/Insights/2025/what-s-the-true-cost-of-a-chargeback-in-2025.html" target="_blank" rel="noopener">Mastercard</a>).
+        Answering with evidence gathered at the time of sale is how sellers keep that money.</p>
       ${r.payload.evidences.length ? `<button class="btn ${fight ? "primary" : "outline"} wide" id="dsubmit">Send this evidence to PayPal</button>
         <p class="hint cf-promise">Nothing is sent until you press this, and only this exact draft is sent.</p>` : ""}
       <button class="btn ${fight ? "ghost" : "primary"} wide" id="daccept">Accept the claim and refund the buyer</button>
@@ -1307,6 +1316,9 @@ $("#me").onclick = () => {
 
 /* ------------------------------------------------------------------ shell */
 function setChrome(on) { $("#nav").hidden = !on; $("#askfab").hidden = !on || !$("#assistant").hidden; if (!on) $("#assistant").hidden = true; }
+const SKELETON = `<div class="skel" aria-busy="true" aria-label="Loading">
+  <div class="skel-line w40"></div><div class="skel-line w60"></div>
+  <div class="skel-grid"><div class="skel-card"></div><div class="skel-card"></div><div class="skel-card"></div></div></div>`;
 async function go(name) {
   name = { pay: "cart", activity: "history" }[name] || name;
   if (S.tab && S.tab !== name) S.prevTab = S.tab;
@@ -1314,6 +1326,7 @@ async function go(name) {
   document.querySelectorAll(".links [data-tab]").forEach((b) => b.removeAttribute("aria-current"));
   document.querySelector(`.links [data-tab="${name}"]`)?.setAttribute("aria-current", "page");
   history.replaceState(null, "", `#${name}`);
+  app.innerHTML = SKELETON;
   try { await views[name](); } catch (e) { app.innerHTML = `<h1>That didn't load</h1><div class="note bad">${esc(e.message)}</div><p class="muted">Check that ContextIQ is running, then reload the page.</p>`; }
   app.focus({ preventScroll: true });
 }

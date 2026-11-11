@@ -467,3 +467,16 @@ def test_dispute_draft_cites_the_mandate():
     dr = c.post(f"/api/cases/{cid}/dispute/draft", headers=S).json()
     assert any("signed spending mandate" in f for f in dr["facts"])
     assert any(p["label"].startswith("Buyer's signed") and p["present"] for p in dr["proofs"])
+
+
+
+def test_dispute_readiness_before_any_dispute():
+    S = {"X-User-Id": "brightmart"}
+    cid, tok, r = _pay()
+    assert c.get(f"/api/cases/{cid}/dispute-readiness", headers=H).status_code == 403  # seller-only
+    before = c.get(f"/api/cases/{cid}/dispute-readiness", headers=S).json()
+    assert before["have"] == before["of"] - 1  # only tracking missing, with a fix suggested
+    assert next(p for p in before["proofs"] if not p["present"])["fix"]
+    c.post(f"/api/cases/{cid}/ship", json={}, headers=S)
+    after = c.get(f"/api/cases/{cid}/dispute-readiness", headers=S).json()
+    assert after["have"] == after["of"]
