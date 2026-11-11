@@ -8,20 +8,24 @@ Built for the PayPal AI Hackathon (Devpost) by team Avoflare. Licensed under Apa
 
 ## Try it
 
-- **Hosted demo (PayPal sandbox):** https://contextiq-0ihy.onrender.com. It runs on Render's free tier, so the first
-  load after a quiet spell can take about a minute, and demo data is re-seeded when the service wakes.
+- **Guided judge tour (PayPal sandbox):** https://contextiq-0ihy.onrender.com/?demo=1. A five-step bar at the
+  top tracks the real state of your purchase and takes you to each next step, switching between buyer and
+  seller for you. It runs on Render's free tier, so the first load after a quiet spell can take about a minute;
+  data is kept in Postgres.
 - **PayPal sandbox buyer login:** in the Devpost submission's test-credentials field (not in this repo).
-- **Judge walkthrough (about 5 minutes):**
-  1. Cart → *Pay with PayPal* → log in as the sandbox buyer in the PayPal popup and approve. The payment is
-     captured only after the security gateway allows it.
-  2. Switch user to **BrightMart** (the seller), open the purchase → *Mark shipped*. The tracking number is
-     sent to PayPal and shows up as verified evidence.
-  3. As the sandbox buyer at https://www.sandbox.paypal.com, open the Resolution Center and report the item
-     as not received.
-  4. Back as BrightMart, open the purchase → *Check PayPal for disputes* → *Prepare a response from the
-     briefcase*. Review the draft, then *Approve & send this evidence to PayPal*.
-  5. *Sandbox: ask PayPal to decide* resolves the case. The console (`/console`) shows every gateway decision.
-- **Identity is a demo header** (`X-User-Id`, switched from the user menu). There is no login; do not reuse
+- **The five steps:**
+  1. **Pay with PayPal** as the buyer: approve in the PayPal popup. Capture only happens if the buyer's signed
+     spending mandate and the security gateway both allow it.
+  2. **Seller ships** (top-bar switch: *Seller*): open the purchase → *Mark shipped*. The tracking number goes to
+     PayPal and appears in the evidence ledger as verified.
+  3. **Buyer disputes at PayPal**: as the sandbox buyer at https://www.sandbox.paypal.com, report the item as
+     not received. The dispute reaches ContextIQ by verified webhook within a few minutes.
+  4. **Answer from the briefcase**: as the seller, *Prepare a response from the briefcase*, review the case file,
+     then *Send this evidence to PayPal*.
+  5. **PayPal decides**: *Sandbox: ask PayPal to decide*. The console (`/console`) shows every gateway decision.
+- **Try to break it:** in any purchase, *Test the signed mandate* has a prompt-injected agent add a hidden fee
+  and redirect the payment; both are blocked, with the reason.
+- **Identity is a demo header** (`X-User-Id`, set by the Buyer/Seller switch). There is no login; do not reuse
   this pattern in production.
 
 ## What it can do
@@ -37,6 +41,7 @@ Built for the PayPal AI Hackathon (Devpost) by team Avoflare. Licensed under Apa
 
 ### Paying
 - **PayPal integration:** orders, approval, capture, refunds, shipment tracking, disputes and verified webhooks over PayPal's REST API.
+- **Signed spending mandates:** the buyer's approval becomes an Ed25519-signed mandate (payee, maximum amount, exact items, expiry) whose hash is stored on the PayPal order; capture fails closed if anything differs. AP2-shaped, our own implementation.
 - **Self-healing payments:** after a dropped connection it checks PayPal before retrying, using idempotency keys, so it never charges twice.
 - **Security gateway:** every money action needs explicit approval, a permission check, a risk check and limits, and is written to an audit log. Step-up verification starts at $500 ($200 for a new payee).
 - **Online and in-person:** online checkouts and counter QR payments are handled differently.
@@ -83,7 +88,7 @@ pip install -r requirements.txt  # requirements-ml.txt adds torch + peft for tra
 cp .env.example .env            # PAYPAL_ENV=mock works offline; see "PayPal sandbox" below
 python -m app.ml.train          # trains every model with hyperparameter search (~7 min), writes MODEL_REPORT.md
 python run.py                   # http://localhost:8000
-pip install -r requirements-dev.txt && pytest -q   # 35 end-to-end tests (mock mode)
+pip install -r requirements-dev.txt && pytest -q   # 37 end-to-end tests (mock mode)
 python -m app.ml.lora_policy    # optional, needs requirements-ml.txt: LoRA policy model (~12 min on CPU)
 python -m app.ml.evaluate_unseen  # final test on unseen, shifted data (~4 min)
 ```

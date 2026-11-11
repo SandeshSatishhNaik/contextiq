@@ -1,25 +1,25 @@
 # ContextIQ demo video: shot list (target 2:50, hard limit 3:00)
 
-Record on the hosted demo (https://contextiq-0ihy.onrender.com) in PayPal sandbox mode, so every ID on screen is a real PayPal sandbox ID. Open the site a few minutes early so the free instance is awake.
+Record on the hosted guided tour, https://contextiq-0ihy.onrender.com/?demo=1, in PayPal sandbox mode, so every ID on screen is a real sandbox ID. Open it a few minutes early so the free instance is awake.
 
 **Before recording**
-- Tab 1: the app as **Alex** (buyer).
-- Tab 2: the app as **BrightMart** (seller). Use the user switcher; it's a demo header, not a login.
-- Tab 3: https://www.sandbox.paypal.com, logged in as the sandbox buyer.
-- Do one dry run end to end. Sandbox disputes can take a few minutes to appear, so open the dispute in the dry run and keep that purchase for the dispute scenes if needed.
+- One browser window on the tour. The **Buyer / Seller** switch in the top bar changes who you are; the tour bar tells you which role each step needs.
+- A second tab: https://www.sandbox.paypal.com, logged in as the sandbox buyer.
+- Do a full dry run first. Sandbox disputes take a few minutes to arrive and the sandbox decision another minute or two, so file the dry-run dispute early and use that purchase for scenes 6 to 8 if needed.
 
-| Time | Screen | Say (roughly) |
-| --- | --- | --- |
-| 0:00–0:15 | Title, then the app home | "Checkout forgets everything the moment you pay. When a dispute comes weeks later, the seller has to rebuild the story by hand. ContextIQ is an AI agent on PayPal that keeps the evidence and uses it." |
-| 0:15–0:40 | Cart → *Check before paying*: saved store terms, budget check | "Before paying, it saves the store's terms as they are right now, checks the purchase against Alex's bills and payday, and fingerprints exactly what Alex agrees to." |
-| 0:40–1:05 | *Pay with PayPal* → PayPal sandbox popup → approve → captured; show the order and capture IDs | "This is a real PayPal sandbox order. Capture only happens after our security gateway checks Alex's explicit approval of this amount and payee. The AI can't move money; the gateway decides." |
-| 1:05–1:20 | Tab 2 (BrightMart): open the purchase → *Mark shipped* | "The seller ships. The tracking number goes straight to PayPal with Add Tracking and comes back as verified evidence." |
-| 1:20–1:35 | Tab 3: sandbox buyer opens an *Item not received* case | "Now the buyer says it never arrived and opens a PayPal dispute." |
-| 1:35–2:15 | Tab 2: *Check PayPal for disputes* → dispute card → *Prepare a response from the briefcase*: recommendation, facts, PROOF_OF_FULFILLMENT | "PayPal's dispute arrives. The agent matches it to the payment, reads the briefcase and drafts the response PayPal asks for: tracking as proof of fulfillment, plus what the buyer agreed to and the store's terms. It recommends fighting, and says why." |
-| 2:15–2:35 | *Approve & send this evidence to PayPal* → *Sandbox: ask PayPal to decide* → resolved in the seller's favour | "Nothing goes out until the seller approves, and only the exact draft they saw is sent. In sandbox we can ask PayPal to decide: seller's favour." |
-| 2:35–2:50 | Quick montage: console gateway log, signed QR replay rejected, voice refusing to pay, MCP config | "Every decision is logged. QR codes are signed and can't be replayed. Voice can ask, but never pay. And it runs alongside PayPal's own MCP server. ContextIQ: the agent that keeps working after you pay." |
+| # | Time | Screen | Say (roughly) |
+| --- | --- | --- | --- |
+| 1 | 0:00–0:12 | Home with the judge tour bar | "Checkout forgets everything the moment you pay. When a dispute arrives weeks later, the seller has to rebuild the story by hand. ContextIQ is an AI agent on PayPal that keeps the evidence and uses it." |
+| 2 | 0:12–0:35 | Cart → *Buy* → check-before-paying sheet (store terms, budget) | "Before paying, it saves the store's terms as they are now and checks the purchase against Alex's bills and payday." |
+| 3 | 0:35–0:58 | *Pay with PayPal* → sandbox popup → approve → Paid. Tour step 1 ticks. | "Alex's approval becomes a signed spending mandate: this payee, this amount, these exact items. Its hash is written onto the PayPal order. Capture only happens if the mandate and our security gateway both pass." |
+| 4 | 0:58–1:15 | Open the purchase → evidence ledger → *Test the signed mandate* → two attempts blocked | "Here's why that matters. A prompt-injected product page tells the agent to add a fee and pay a different account. Both are blocked, with the reason. The AI can't move money; the mandate decides." |
+| 5 | 1:15–1:30 | Tour → *Switch to seller* → *Mark shipped*; ledger shows tracking as verified | "The seller ships. The tracking number goes straight to PayPal and comes back as verified evidence." |
+| 6 | 1:30–1:42 | Sandbox tab: buyer reports *Item not received* | "Now the buyer says it never arrived and opens a PayPal dispute." |
+| 7 | 1:42–2:20 | Seller: dispute case file (claim vs proofs, strength meter, verdict) | "PayPal's dispute arrives by webhook. The agent matches it to the payment and builds a case file: what the buyer claims, next to what the briefcase proves: the capture, the signed mandate, the store terms, PayPal tracking. Five of five proofs, so it recommends responding, and says why." |
+| 8 | 2:20–2:38 | *Send this evidence to PayPal* → *Sandbox: ask PayPal to decide* → closed in the seller's favour; tour shows all five ticks | "Nothing goes out until the seller approves, and only this exact draft is sent. PayPal's sandbox decides: seller's favour." |
+| 9 | 2:38–2:50 | Quick cut: console gateway log, MCP config | "Every decision is audited, and it runs alongside PayPal's own MCP server. ContextIQ: the agent that keeps working after you pay." |
 
 **Rules for the recording**
-- Show real IDs only; never show `.env`, the Render dashboard secrets or the sandbox buyer password.
+- Show real IDs only. Never show `.env`, the Render or Supabase dashboards, or the sandbox buyer password.
 - If a sandbox step stalls, cut and re-record that scene rather than switching to mock mode on camera.
 - Upload to YouTube as **Public**, "No, it's not made for kids", under 3:00. Paste the link into Devpost.

@@ -2,7 +2,7 @@
 
 > Every PayPal payment gets an evidence briefcase. When a buyer opens a PayPal dispute, ContextIQ answers it from that briefcase, and a person approves before anything is sent.
 
-**Try it:** https://contextiq-0ihy.onrender.com (free hosting: the first load can take about a minute) · **Code:** https://github.com/SandeshSatishhNaik/contextiq (Apache-2.0) · **Team:** Avoflare
+**Try it:** https://contextiq-0ihy.onrender.com/?demo=1 (guided judge tour; free hosting, so the first load can take about a minute) · **Code:** https://github.com/SandeshSatishhNaik/contextiq (Apache-2.0) · **Team:** Avoflare
 
 ---
 
@@ -15,10 +15,11 @@ PayPal already has the rails for the hard part: shipment tracking, the Disputes 
 ## What it does
 
 1. **Before you pay.** Saves the store's return and warranty terms as they were at checkout, checks the purchase against your bills and payday, and records a SHA-256 fingerprint of exactly what you agreed to (items, amount, payee).
-2. **While you pay.** Checkout runs on PayPal Orders v2. A security gateway (policy as code, independent of the AI) checks an explicit approval for this exact amount and payee, a fraud score, and limits; large or unusual payments need step-up verification. Captures and refunds use deterministic `PayPal-Request-Id` keys and read PayPal before any retry, so a dropped connection never charges twice.
+2. **While you pay.** The approval becomes a **signed spending mandate**: an Ed25519 signature over the payee, the maximum amount, the exact items and an expiry. Its hash is written onto the PayPal order (`custom_id`), so PayPal's own record points back to it. Before capture the mandate is checked again and the payment fails closed if anything differs, so an agent, or a prompt-injected product page, cannot add a fee or redirect the money. Checkout runs on PayPal Orders v2. A security gateway (policy as code, independent of the AI) checks an explicit approval for this exact amount and payee, a fraud score, and limits; large or unusual payments need step-up verification. Captures and refunds use deterministic `PayPal-Request-Id` keys and read PayPal before any retry, so a dropped connection never charges twice.
 3. **After you pay.** The seller marks the order shipped and the tracking number goes to PayPal (Orders v2 Add Tracking). It comes back into the briefcase as verified evidence.
-4. **When a buyer disputes.** PayPal's dispute arrives by webhook (or a manual sync). The agent matches it to the payment, drafts PayPal-shaped evidence from the briefcase (tracking as `PROOF_OF_FULFILLMENT`; the agreed items, amount and saved store terms in the notes) and recommends fighting or accepting. The seller approves the exact draft; only that draft (checked by hash) is sent with `provide-evidence`. Accepting a claim refunds money, so it goes through the same gateway as any refund.
-5. **Everything else, on the same briefcase:** an assistant you can type or talk to (read-only for money), budget and bill tracking, signed shop QR codes with replay protection, invoice-vs-purchase-order checks for business buyers, and signed buyer and seller agents that share only the fields each side is allowed to see.
+4. **When a buyer disputes.** PayPal's dispute arrives by webhook (or a manual sync). The agent matches it to the payment, drafts PayPal-shaped evidence from the briefcase (tracking as `PROOF_OF_FULFILLMENT`; the signed mandate, agreed items and saved store terms in the notes), shows the seller a case file with how many of the proofs PayPal needs are on hand, and recommends fighting or accepting. The seller approves the exact draft; only that draft (checked by hash) is sent with `provide-evidence`. Accepting a claim refunds money, so it goes through the same gateway as any refund.
+5. **Evidence you can see.** Every purchase shows an evidence ledger: each fact with a seal for who vouches for it (verified by PayPal or a signature, claimed by a person, or inferred by the AI with its sources) and its SHA-256 fingerprint.
+6. **Everything else, on the same briefcase:** an assistant you can type or talk to (read-only for money), budget and bill tracking, signed shop QR codes with replay protection, invoice-vs-purchase-order checks for business buyers, and signed buyer and seller agents that share only the fields each side is allowed to see.
 
 ## How we use PayPal
 
@@ -27,7 +28,7 @@ Every call below is in `app/paypal/adapter.py` and runs against the real sandbox
 | PayPal API | Used for | Verified in sandbox |
 | --- | --- | --- |
 | OAuth 2.0 client credentials | Server-side access token | Yes |
-| Orders v2: create, get, capture | Checkout with itemized purchase units; capture only after the gateway allows it | Yes (hosted demo: order `42072361WU062731N`, capture `8NK10720LK217045H`) |
+| Orders v2: create (with the mandate hash as `custom_id`), get, capture | Checkout with itemized purchase units; capture only after the mandate and the gateway allow it | Yes (hosted demo: order `42072361WU062731N`, capture `8NK10720LK217045H`) |
 | Orders v2: Add Tracking (`/v2/checkout/orders/{id}/track`) | Seller shipment tracking attached to the capture | Yes |
 | Payments v2: refund | Seller-approved refunds, keyed per case and amount | Mock-tested |
 | Disputes v1: list, get, provide-evidence or provide-supporting-info (whichever PayPal's links allow), accept-claim; sandbox adjudicate | Answering buyer disputes from the briefcase | Yes: buyer's "item not received" case `PP-R-ZSX-10198838` on capture `8NK10720LK217045H` was matched, answered with the USPS tracking and agreed terms, and resolved `RESOLVED_SELLER_FAVOUR` |
@@ -52,7 +53,7 @@ Not used yet: Invoicing v2 (adapter methods exist, not wired into the app), Payo
 
 ## How we built it
 
-FastAPI and SQLAlchemy (SQLite), vanilla JavaScript front end, LangGraph, scikit-learn, the `cryptography` library (Ed25519 signatures for QR codes and agent messages, SHA-256 fingerprints for agreements and evidence), `webauthn` for passkeys, deployed on Render. 35 end-to-end tests run the full API in mock mode.
+FastAPI and SQLAlchemy (SQLite), vanilla JavaScript front end, LangGraph, scikit-learn, the `cryptography` library (Ed25519 signatures for QR codes and agent messages, SHA-256 fingerprints for agreements and evidence), `webauthn` for passkeys, deployed on Render. Supabase Postgres for the hosted demo's data. 37 end-to-end tests run the full API in mock mode on every push (GitHub Actions), which then deploys to Render.
 
 ## What's real and what's simulated
 
@@ -69,7 +70,7 @@ FastAPI and SQLAlchemy (SQLite), vanilla JavaScript front end, LangGraph, scikit
 
 ## What's next
 
-Google A2A agent cards for the buyer and seller agents, signed spending mandates in the style of AP2 checked at capture time, Vault for repeat purchases, and Payouts for supplier payments.
+Google A2A agent cards for the buyer and seller agents, mandates as SD-JWT verifiable credentials for interoperability with AP2, Vault for repeat purchases, Payouts for supplier payments, and real sign-in in place of the demo identity header.
 
 ## Submission period
 
