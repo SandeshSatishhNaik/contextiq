@@ -521,3 +521,7 @@ body.seller .role button[aria-pressed="true"] { color: var(--biz); }
   .tour-in { position: relative; padding-right: 44px; }
   .tour-x { position: absolute; top: 6px; right: 8px; }
 }
+
+/* ---------- demo notice ---------- */
+.demo-note { max-width: 1180px; margin: 40px auto 90px; padding: 0 24px; font-size: 13px; color: var(--mute); text-align: center; }
+.demo-note a { color: var(--blue); }

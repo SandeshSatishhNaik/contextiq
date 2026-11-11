@@ -120,18 +120,25 @@ def index():
     return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
 
+@app.get("/{name}.html", include_in_schema=False)
+def google_site_verification(name: str):
+    if settings.google_verification_file and f"{name}.html" == settings.google_verification_file:
+        return HTMLResponse(f"google-site-verification: {settings.google_verification_file}")
+    raise HTTPException(404, "not found")
+
+
 def _redirect_page(param: str, case: str) -> HTMLResponse:
     # Case ids are hex; anything else is dropped so the value can never break out of the script.
     safe = case if case.isalnum() else ""
     return HTMLResponse(f"<script>location.href={json.dumps(f'/?{param}={safe}')}</script>")
 
 
-@app.get("/paypal/return", response_class=HTMLResponse)
+@app.get("/checkout/return", response_class=HTMLResponse)
 def paypal_return(case: str):
     return _redirect_page("approved", case)
 
 
-@app.get("/paypal/cancel", response_class=HTMLResponse)
+@app.get("/checkout/cancel", response_class=HTMLResponse)
 def paypal_cancel(case: str):
     return _redirect_page("cancelled", case)
 

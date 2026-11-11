@@ -341,9 +341,9 @@ def test_bills_pay_and_recommendations():
 
 
 def test_paypal_return_cannot_inject_script():
-    html = c.get("/paypal/return", params={"case": "x';alert(1);//"}).text
+    html = c.get("/checkout/return", params={"case": "x';alert(1);//"}).text
     assert "alert" not in html and "/?approved=" in html
-    assert '"/?approved=abc123"' in c.get("/paypal/return", params={"case": "abc123"}).text
+    assert '"/?approved=abc123"' in c.get("/checkout/return", params={"case": "abc123"}).text
 
 
 def test_reset_needs_mock_mode_or_admin_token(monkeypatch):

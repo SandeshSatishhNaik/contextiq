@@ -22,8 +22,8 @@ def create_order_for_case(db: Session, case: Case, items: list[dict], payee_emai
     order = client.create_order(
         amount=case.amount, currency=case.currency, items=items, reference_id=case.id,
         description=case.title, request_id=f"order-{case.id}",
-        return_url=f"{settings.public_base_url}/paypal/return?case={case.id}",
-        cancel_url=f"{settings.public_base_url}/paypal/cancel?case={case.id}",
+        return_url=f"{settings.public_base_url}/checkout/return?case={case.id}",
+        cancel_url=f"{settings.public_base_url}/checkout/cancel?case={case.id}",
         payee_email=payee_email,
         payer_email=payer_email,
         custom_id=custom_id,

@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0A2A66">
   <title>ContextIQ</title>
+  <meta name="description" content="ContextIQ: a hackathon demo of an AI agent that keeps evidence for each payment and answers disputes. Runs on the PayPal sandbox; not affiliated with PayPal.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Crect width=%2224%22 height=%2224%22 rx=%227%22 fill=%22%23009CDE%22/%3E%3Cpath d=%22M12 12L24 12A12 12 0 0 1 12 24Z%22 fill=%22%23FFC439%22/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/app.css?v=6">
+  <link rel="stylesheet" href="/static/app.css?v=7">
 </head>
 <body>
 <header class="nav" id="nav" hidden>
@@ -58,6 +59,7 @@
 </aside>
 
 <div class="toasts" id="toasts" aria-live="polite"></div>
+<footer class="demo-note">ContextIQ is a hackathon demo on the PayPal <b>sandbox</b> (test money only). It is not PayPal, is not affiliated with PayPal, and never asks for your PayPal password: approvals happen on PayPal's own site. <a href="https://github.com/SandeshSatishhNaik/contextiq">Source code</a></footer>
 
 <dialog id="sheet" class="modal"><button class="x modal-x" aria-label="Close" onclick="this.closest('dialog').close()">×</button><div class="modal-body" id="sheet-body"></div></dialog>
 
