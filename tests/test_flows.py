@@ -374,3 +374,37 @@ def test_seller_ships_with_paypal_tracking():
     v = c.get(f"/api/cases/{cid}", headers=H).json()
     assert any(e["kind"] == "paypal_tracking" and e["provenance"] == "verified" for e in v["evidence"])
     assert any(i["item"].startswith("Shipped") and i["done"] for i in v["checklist"])
+
+
+def test_paypal_dispute_fought_with_briefcase_evidence():
+    S = {"X-User-Id": "brightmart"}
+    cid, tok, r = _pay()
+    c.post(f"/api/cases/{cid}/ship", json={"tracking_number": "9400111899223344556677"}, headers=S)
+    c.post(f"/api/mock/open-dispute/{cid}", headers=H)  # buyer files "item not received" at PayPal
+    assert c.post(f"/api/cases/{cid}/dispute/draft", headers=H).status_code == 403  # buyer can't answer
+    dr = c.post(f"/api/cases/{cid}/dispute/draft", headers=S).json()
+    assert dr["recommendation"] == "fight"
+    ev = dr["payload"]["evidences"][0]
+    assert ev["evidence_type"] == "PROOF_OF_FULFILLMENT"
+    assert ev["evidence_info"]["tracking_info"][0]["tracking_number"] == "9400111899223344556677"
+    assert not c.post(f"/api/cases/{cid}/dispute/submit", json={"draft_hash": "tampered"}, headers=S).json()["ok"]
+    sub = c.post(f"/api/cases/{cid}/dispute/submit", json={"draft_hash": dr["draft_hash"]}, headers=S).json()
+    assert sub["ok"], sub
+    dec = c.post(f"/api/cases/{cid}/dispute/sandbox-decide", json={}, headers=S).json()
+    assert dec["outcome"] == "RESOLVED_SELLER_FAVOUR", dec
+    assert c.get(f"/api/cases/{cid}/dispute", headers=H).json()["dispute"]["status"] == "RESOLVED"
+
+
+def test_paypal_dispute_accepted_goes_through_gateway():
+    S = {"X-User-Id": "brightmart"}
+    cid, tok, r = _pay()
+    c.post(f"/api/mock/open-dispute/{cid}", headers=H)  # no tracking on file
+    assert c.post(f"/api/cases/{cid}/dispute/draft", headers=S).json()["recommendation"] == "accept"
+    assert not c.post(f"/api/cases/{cid}/dispute/accept", json={"approval_token": "forged"}, headers=S).json()["ok"]
+    at = c.post(f"/api/cases/{cid}/refund/approve", headers=S).json()["approval_token"]
+    a = c.post(f"/api/cases/{cid}/dispute/accept", json={"approval_token": at}, headers=S).json()
+    if a.get("gateway") == "step_up":
+        a = c.post(f"/api/cases/{cid}/dispute/accept", json={"approval_token": at, "step_up_code": a["step_up_code_demo"]},
+                   headers=S).json()
+    assert a["ok"], a
+    assert c.get(f"/api/cases/{cid}", headers=H).json()["case"]["payment_state"] == "refunded"

@@ -1024,8 +1024,10 @@ async function openCase(id) {
       <div class="viz">${o.days > 0 ? countdown(o.days, o.kind === "warranty" ? 365 : 30, o.days <= 3 ? "#C0392B" : "#1A7F4B") : `<div class="tile">${I.lock}</div>`}</div>
       <div><b>${LABEL[o.kind]}</b><br><span class="hint">${o.days > 0 ? `Until ${fmtDate(o.due_at)}` : "Closed"}${o.kind === "return_window" && notReturnable(c.title, excl) ? " · only if unopened" : ""}</span></div></div>`).join("")}</div>` : ""}
     ${ev.length ? `<div class="note">${ev.map((e) => `${evText[e.type]} · ${fmtDate(e.at)}`).join("<br>")}</div>` : ""}
+    ${v.role === "seller" && c.paypal_capture_id ? `<div id="disputebox" style="margin:12px 0"></div>` : ""}
     ${v.role === "seller" && c.payment_state === "captured" && !shipped ? `<button class="btn primary wide" id="ship">${I.lock} Mark shipped · send tracking to PayPal</button><div id="shipbox"></div>` : ""}
     ${v.role !== "seller" && c.payment_state === "captured" && c.purpose !== "business" ? `<button class="btn outline wide" id="wrong">Something wrong with it?</button><div id="wrongbox"></div>` : ""}`);
+  if ($("#disputebox")) drawDispute(id);
   $("#ship") && ($("#ship").onclick = async () => {
     $("#ship").disabled = true;
     const r = await api(`/api/cases/${id}/ship`, { body: {} });
@@ -1087,6 +1089,54 @@ async function openCase(id) {
       if (rr.ok) { $("#wrongbox").innerHTML = `<div class="note ok">Refund requested through PayPal. It usually lands in 3–5 days.</div>`; pushNote("Refund requested", `${c.title} — ${money(c.amount, c.currency)} back to your PayPal.`); setTimeout(() => openCase(id), 1200); }
       else $("#wrongbox").innerHTML = `<div class="note bad">${esc(rr.error || (rr.reasons || []).join("; "))}</div>`;
     });
+  });
+}
+
+/* ------------------------------------------------------- PayPal dispute (seller side) */
+async function drawDispute(id) {
+  const box = $("#disputebox");
+  const { dispute: d } = await api(`/api/cases/${id}/dispute`);
+  if (!d) {
+    box.innerHTML = `<button class="btn outline wide" id="dsync">Check PayPal for disputes on this payment</button>`;
+    $("#dsync").onclick = async () => { $("#dsync").disabled = true; await api("/api/disputes/sync", { method: "POST" }); drawDispute(id); };
+    return;
+  }
+  const outcome = d.dispute_outcome?.outcome_code;
+  box.innerHTML = `<div class="note ${d.status === "RESOLVED" ? (outcome === "RESOLVED_SELLER_FAVOUR" ? "ok" : "warn") : "bad"}">
+      <b>PayPal dispute ${esc(d.dispute_id)}</b><br>${esc((d.reason || "").replaceAll("_", " ").toLowerCase())} · <b>${esc(d.status)}</b>${outcome ? ` · ${esc(outcome.replaceAll("_", " ").toLowerCase())}` : ""}</div>
+    ${d.status !== "RESOLVED" ? `<button class="btn primary wide" id="ddraft">Prepare a response from the briefcase</button><div id="ddraftbox"></div>` : ""}`;
+  $("#ddraft") && ($("#ddraft").onclick = async () => {
+    const r = await api(`/api/cases/${id}/dispute/draft`, { method: "POST" });
+    if (!r.ok) return ($("#ddraftbox").innerHTML = `<div class="note bad">${esc(r.error)}</div>`);
+    const fight = r.recommendation === "fight";
+    $("#ddraftbox").innerHTML = `<div class="note"><b>Recommendation: ${fight ? "respond with evidence" : "accept and refund"}</b> — ${esc(r.why)}
+        <ul style="margin:6px 0 0 18px">${r.facts.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
+        ${r.payload.evidences.map((e) => `<div class="hint">Sends to PayPal: ${esc(e.evidence_type)}</div>`).join("")}</div>
+      ${r.payload.evidences.length ? `<button class="btn ${fight ? "primary" : "outline"} wide" id="dsubmit">Approve &amp; send this evidence to PayPal</button>` : ""}
+      <button class="btn ${fight ? "outline" : "primary"} wide" id="daccept" style="margin-top:6px">Accept the claim (PayPal refunds the buyer)</button>
+      <div id="dresult"></div>`;
+    $("#dsubmit") && ($("#dsubmit").onclick = async () => {
+      const s = await api(`/api/cases/${id}/dispute/submit`, { body: { draft_hash: r.draft_hash } });
+      $("#dresult").innerHTML = s.ok ? `<div class="note ok">Sent to PayPal: ${esc(s.submitted.join(", "))}.</div>
+          ${S.config.paypal_env !== "live" ? `<button class="btn outline wide" id="ddecide">Sandbox: ask PayPal to decide</button>` : ""}`
+        : `<div class="note bad">${esc(s.error)}</div>`;
+      $("#ddecide") && ($("#ddecide").onclick = async () => {
+        const x = await api(`/api/cases/${id}/dispute/sandbox-decide`, { body: { outcome: "SELLER_FAVOR" } });
+        if (x.ok) drawDispute(id); else $("#dresult").innerHTML += `<div class="note bad">${esc(x.error)}</div>`;
+      });
+    });
+    $("#daccept").onclick = async () => {
+      const { approval_token } = await api(`/api/cases/${id}/refund/approve`, { method: "POST" });
+      let a = await api(`/api/cases/${id}/dispute/accept`, { body: { approval_token } });
+      if (a.gateway === "step_up") {
+        const code = prompt(`Confirm it's you (${a.reasons.join(", ")}).
+Demo delivery of the code: ${a.step_up_code_demo}`);
+        if (!code) return;
+        a = await api(`/api/cases/${id}/dispute/accept`, { body: { approval_token, step_up_code: code } });
+      }
+      $("#dresult").innerHTML = a.ok ? `<div class="note ok">Claim accepted on PayPal; the buyer is refunded.</div>` : `<div class="note bad">${esc(a.error || (a.reasons || []).join("; "))}</div>`;
+      if (a.ok) setTimeout(() => openCase(id), 1200);
+    };
   });
 }
 

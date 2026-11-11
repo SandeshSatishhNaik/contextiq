@@ -473,6 +473,97 @@ def ship(case_id: str, body: ShipIn, user: User = Depends(user_dep), db=Depends(
     return payments.add_tracking_for_case(db, case, body.tracking_number.strip(), body.carrier.strip().upper())
 
 
+# ---------------------------------------------------------- PayPal disputes (seller side)
+def _seller_case(db, case_id: str, user: User) -> Case:
+    case = _my_case(db, case_id, user)
+    part = db.scalar(select(Participant).where(Participant.case_id == case.id, Participant.party_id == user.id))
+    if part.role != "seller":
+        raise HTTPException(403, "only the seller answers a PayPal dispute")
+    return case
+
+
+@app.post("/api/disputes/sync")
+def disputes_sync(user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
+    """Pull disputes from PayPal (works without a public webhook URL)."""
+    from .agents import dispute_response
+
+    return {"disputes": dispute_response.sync(db)}
+
+
+@app.get("/api/cases/{case_id}/dispute")
+def dispute_get(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
+    from .agents import dispute_response
+
+    return {"dispute": dispute_response.current(db, _my_case(db, case_id, user))}
+
+
+@app.post("/api/cases/{case_id}/dispute/draft")
+def dispute_draft(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
+    from .agents import dispute_response
+
+    return dispute_response.draft(db, _seller_case(db, case_id, user))
+
+
+class DisputeSubmitIn(BaseModel):
+    draft_hash: str
+
+
+@app.post("/api/cases/{case_id}/dispute/submit")
+def dispute_submit(case_id: str, body: DisputeSubmitIn, user: User = Depends(user_dep),
+                   db=Depends(db_dep, scope="function")):
+    from .agents import dispute_response
+
+    return dispute_response.submit(db, _seller_case(db, case_id, user), body.draft_hash)
+
+
+class DisputeAcceptIn(BaseModel):
+    approval_token: str
+    step_up_code: str | None = None
+    note: str = ""
+
+
+@app.post("/api/cases/{case_id}/dispute/accept")
+def dispute_accept(case_id: str, body: DisputeAcceptIn, user: User = Depends(user_dep),
+                   db=Depends(db_dep, scope="function")):
+    """Accepting refunds the buyer, so it passes the same gateway as any refund."""
+    from .agents import dispute_response
+
+    case = _seller_case(db, case_id, user)
+    if body.step_up_code:
+        gateway.pass_step_up(db, body.approval_token, body.step_up_code)
+    verdict = gateway.check(db, actor=user.id, action="refund", case=case, approval_token=body.approval_token)
+    if not verdict.allowed:
+        return {"ok": False, "gateway": verdict.decision, "reasons": verdict.reasons,
+                "step_up_code_demo": verdict.step_up_code}
+    return dispute_response.accept(db, case, body.note)
+
+
+class DecideIn(BaseModel):
+    outcome: str = Field(default="SELLER_FAVOR", pattern="^(SELLER_FAVOR|BUYER_FAVOR)$")
+
+
+@app.post("/api/cases/{case_id}/dispute/sandbox-decide")
+def dispute_sandbox_decide(case_id: str, body: DecideIn, user: User = Depends(user_dep),
+                           db=Depends(db_dep, scope="function")):
+    from .agents import dispute_response
+
+    return dispute_response.sandbox_decide(db, _seller_case(db, case_id, user), body.outcome)
+
+
+@app.post("/api/mock/open-dispute/{case_id}")
+def mock_open_dispute(case_id: str, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
+    """Mock mode: the buyer files a PayPal case (in sandbox, do this at sandbox.paypal.com)."""
+    if settings.paypal_env != "mock":
+        raise HTTPException(400, "in sandbox, open the case as the buyer at sandbox.paypal.com")
+    from .agents import dispute_response
+    from .paypal import mock
+
+    case = _my_case(db, case_id, user)
+    d = mock.open_dispute(case.paypal_capture_id)
+    dispute_response.record(db, d)
+    return {"ok": True, "dispute_id": d["dispute_id"]}
+
+
 @app.post("/api/cases/{case_id}/delivered")
 def delivered(case_id: str, days_ago: int = 0, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
     """Simulated carrier delivery event (no carrier integration); PayPal tracking is separate."""
@@ -882,6 +973,11 @@ async def paypal_webhook(request: Request, db=Depends(db_dep, scope="function"))
 
 def _apply_webhook(db, event: dict) -> dict:
     res = event.get("resource", {})
+    if event.get("event_type", "").startswith("CUSTOMER.DISPUTE."):
+        from .agents import dispute_response
+
+        case = dispute_response.record(db, res)
+        return {"ok": True, "case_id": case.id if case else None, "dispute": res.get("dispute_id")}
     order_id = res.get("supplementary_data", {}).get("related_ids", {}).get("order_id")
     case = None
     if order_id:

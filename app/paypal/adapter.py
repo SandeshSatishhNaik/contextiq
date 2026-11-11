@@ -17,6 +17,7 @@ PayPal-shaped responses (see mock.py), so everything is testable offline.
 """
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -153,8 +154,33 @@ class PayPalClient:
         return self._request("GET", f"/v2/invoicing/invoices/{invoice_id}")
 
     # ------------------------------------------------------------ disputes
-    def list_disputes(self) -> dict:
-        return self._request("GET", "/v1/customer/disputes")
+    def list_disputes(self, **params: str) -> dict:
+        return self._request("GET", "/v1/customer/disputes", params=params or None)
+
+    def get_dispute(self, dispute_id: str) -> dict:
+        return self._request("GET", f"/v1/customer/disputes/{dispute_id}")
+
+    def provide_evidence(self, dispute_id: str, evidences: list[dict]) -> dict:
+        """Seller evidence. PayPal takes multipart/form-data with the JSON in a part named 'input'."""
+        r = self._http.post(f"/v1/customer/disputes/{dispute_id}/provide-evidence",
+                            headers={"Authorization": f"Bearer {self._access_token()}"},
+                            files={"input": (None, json.dumps({"evidences": evidences}), "application/json")})
+        if r.status_code >= 400:
+            raise PayPalError(r.status_code, r.text)
+        return r.json() if r.content else {}
+
+    def accept_claim(self, dispute_id: str, note: str) -> dict:
+        return self._request("POST", f"/v1/customer/disputes/{dispute_id}/accept-claim",
+                             json={"note": note[:2000], "accept_claim_type": "REFUND"})
+
+    # Sandbox-only simulation endpoints (PayPal rejects them in live).
+    def require_evidence(self, dispute_id: str) -> dict:
+        return self._request("POST", f"/v1/customer/disputes/{dispute_id}/require-evidence",
+                             json={"action": "SELLER_EVIDENCE"})
+
+    def adjudicate(self, dispute_id: str, outcome: str) -> dict:
+        return self._request("POST", f"/v1/customer/disputes/{dispute_id}/adjudicate",
+                             json={"adjudication_outcome": outcome})
 
     # ------------------------------------------------------------- balances
     def merchant_balances(self) -> dict:

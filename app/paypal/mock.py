@@ -18,6 +18,7 @@ ORDERS: dict[str, dict] = {}
 CAPTURES: dict[str, dict] = {}
 REFUNDS: dict[str, dict] = {}
 INVOICES: dict[str, dict] = {}
+DISPUTES: dict[str, dict] = {}
 IDEMPOTENT: dict[tuple[str, str], tuple[int, dict]] = {}
 FAULTS: dict[str, int] = {}  # "capture_timeout_after_commit" -> remaining count
 EVENTS: list[dict] = []  # webhook events the mock "sends"
@@ -39,6 +40,7 @@ _STORE = DATA_DIR / "mock_paypal.json"
 
 def _save() -> None:
     _STORE.write_text(json.dumps({"orders": ORDERS, "captures": CAPTURES, "refunds": REFUNDS, "invoices": INVOICES,
+                                  "disputes": DISPUTES,
                                   "idem": {f"{k[0]}|{k[1]}": v for k, v in IDEMPOTENT.items()}}))
 
 
@@ -50,12 +52,13 @@ def _load() -> None:
     except ValueError:
         return
     ORDERS.update(d["orders"]); CAPTURES.update(d["captures"]); REFUNDS.update(d["refunds"]); INVOICES.update(d["invoices"])
+    DISPUTES.update(d.get("disputes", {}))
     IDEMPOTENT.update({tuple(k.split("|", 1)): tuple(v) for k, v in d["idem"].items()})
 
 
 def reset() -> None:
     with _lock:
-        for d in (ORDERS, CAPTURES, REFUNDS, INVOICES, IDEMPOTENT, FAULTS):
+        for d in (ORDERS, CAPTURES, REFUNDS, INVOICES, DISPUTES, IDEMPOTENT, FAULTS):
             d.clear()
         EVENTS.clear()
         CALLS.clear()
@@ -63,6 +66,22 @@ def reset() -> None:
 
 def inject_fault(name: str, times: int = 1) -> None:
     FAULTS[name] = FAULTS.get(name, 0) + times
+
+
+def open_dispute(capture_id: str, reason: str = "MERCHANDISE_OR_SERVICE_NOT_RECEIVED") -> dict:
+    """Simulates the buyer filing a case at PayPal (what the sandbox buyer does in the Resolution Center)."""
+    with _lock:
+        cap = CAPTURES[capture_id]
+        did = _id("PP-D-")
+        d = {"dispute_id": did, "create_time": _now(), "update_time": _now(), "reason": reason,
+             "status": "WAITING_FOR_SELLER_RESPONSE", "dispute_life_cycle_stage": "CLAIM",
+             "dispute_channel": "INTERNAL", "dispute_amount": dict(cap["amount"]),
+             "disputed_transactions": [{"seller_transaction_id": capture_id}],
+             "seller_response_due_date": _now(), "evidences": []}
+        DISPUTES[did] = d
+        _event("CUSTOMER.DISPUTE.CREATED", d)
+        _save()
+        return d
 
 
 def approve(order_id: str) -> dict:
@@ -99,7 +118,11 @@ def _handler(request: httpx.Request) -> httpx.Response:
             status, body = IDEMPOTENT[key]
             return _json(status, body)
 
-    body = json.loads(request.content or b"{}") if request.content else {}
+    if "multipart/form-data" in request.headers.get("content-type", ""):
+        raw = request.read().decode("utf-8", "replace")  # the JSON lives in the 'input' part
+        body = json.loads(raw[raw.index("{"): raw.rindex("}") + 1])
+    else:
+        body = json.loads(request.content or b"{}") if request.content else {}
     with _lock:
         status, payload = _route(method, path, body)
         if req_id and method == "POST" and status < 500:
@@ -202,8 +225,40 @@ def _route(method: str, path: str, body: dict) -> tuple[int, dict]:
             return 200, {"href": f"https://mock.paypal.local/invoice/p/#{iid}"}
         if method == "GET":
             return 200, inv
-    if path == "/v1/customer/disputes":
-        return 200, {"items": []}
+    # Disputes v1
+    if parts[:3] == ["v1", "customer", "disputes"]:
+        if method == "GET" and len(parts) == 3:
+            return 200, {"items": [{k: d[k] for k in ("dispute_id", "reason", "status", "dispute_amount",
+                                                      "create_time", "update_time", "dispute_life_cycle_stage")}
+                                   for d in DISPUTES.values()]}
+        d = DISPUTES.get(parts[3]) if len(parts) > 3 else None
+        if not d:
+            return 404, {"name": "RESOURCE_NOT_FOUND"}
+        if method == "GET" and len(parts) == 4:
+            return 200, d
+        act = parts[4] if len(parts) > 4 else ""
+        d["update_time"] = _now()
+        if act == "provide-evidence":
+            d["evidences"] += body.get("evidences", [])
+            d["status"] = "UNDER_REVIEW"
+        elif act == "require-evidence":
+            d["status"] = "WAITING_FOR_SELLER_RESPONSE"
+        elif act == "accept-claim":
+            cid = d["disputed_transactions"][0]["seller_transaction_id"]
+            st, _ = _route("POST", f"/v2/payments/captures/{cid}/refund", {})
+            if st >= 400:
+                return st, {"name": "UNPROCESSABLE_ENTITY"}
+            d["status"], d["dispute_outcome"] = "RESOLVED", {"outcome_code": "RESOLVED_BUYER_FAVOUR"}
+        elif act == "adjudicate":
+            if d["status"] != "UNDER_REVIEW":
+                return 422, {"name": "UNPROCESSABLE_ENTITY", "details": [{"issue": "INVALID_DISPUTE_STATE"}]}
+            fav = body.get("adjudication_outcome") == "SELLER_FAVOR"
+            d["status"] = "RESOLVED"
+            d["dispute_outcome"] = {"outcome_code": "RESOLVED_SELLER_FAVOUR" if fav else "RESOLVED_BUYER_FAVOUR"}
+        else:
+            return 404, {"name": "NOT_FOUND"}
+        _event("CUSTOMER.DISPUTE.RESOLVED" if d["status"] == "RESOLVED" else "CUSTOMER.DISPUTE.UPDATED", d)
+        return 200, {"links": [{"rel": "self", "href": f"/v1/customer/disputes/{d['dispute_id']}"}]}
     if path == "/v1/reporting/balances":
         total = sum(float(c["amount"]["value"]) for c in CAPTURES.values())
         refunded = sum(float(r["amount"]["value"]) for r in REFUNDS.values())
