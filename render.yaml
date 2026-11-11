@@ -1,0 +1,39 @@
+# Render blueprint for the hosted judge demo (PayPal sandbox mode).
+# Secrets are set in the Render dashboard, never committed.
+services:
+  - type: web
+    name: contextiq
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run.py
+    healthCheckPath: /api/config
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.14.7
+      - key: HOST
+        value: 0.0.0.0
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: LLM_PROVIDER
+        value: groq
+      - key: GROQ_MODEL_SMALL
+        value: openai/gpt-oss-20b
+      - key: GROQ_MODEL_LARGE
+        value: openai/gpt-oss-120b
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: SERVER_SECRET
+        generateValue: true
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: VOICE_TOKEN
+        generateValue: true

@@ -1,0 +1,5 @@
+# Optional: training and the LoRA policy model (python -m app.ml.lora_policy).
+# The app runs without these; policy reading falls back to the TF-IDF model.
+-r requirements.txt
+torch==2.15.0
+peft==0.21.2
