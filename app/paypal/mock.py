@@ -138,6 +138,14 @@ def _route(method: str, path: str, body: dict) -> tuple[int, dict]:
                 return 404, {"name": "RESOURCE_NOT_FOUND", "message": "order not found"}
             if method == "GET" and len(parts) == 4:
                 return 200, order
+            if method == "POST" and len(parts) == 5 and parts[4] == "track":
+                unit = order["purchase_units"][0]
+                if not any(c["id"] == body.get("capture_id") for c in unit["payments"]["captures"]):
+                    return 422, {"name": "UNPROCESSABLE_ENTITY", "details": [{"issue": "CAPTURE_ID_NOT_FOUND"}]}
+                tracker = {"id": f"{body['capture_id']}-{body['tracking_number']}", "status": "SHIPPED",
+                           "number": body["tracking_number"], "carrier": body["carrier"], "create_time": _now()}
+                unit.setdefault("shipping", {}).setdefault("trackers", []).append(tracker)
+                return 201, order
             if method == "POST" and len(parts) == 5 and parts[4] == "capture":
                 if order["status"] == "COMPLETED":
                     return 422, {"name": "UNPROCESSABLE_ENTITY",

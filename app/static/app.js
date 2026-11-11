@@ -1015,15 +1015,24 @@ async function openCase(id) {
   const v = await api(`/api/cases/${id}`), c = v.case;
   const now = Date.now();
   const dls = (v.obligations || []).filter((o) => LABEL[o.kind] && o.due_at).map((o) => ({ ...o, days: Math.max(0, Math.ceil((new Date(o.due_at) - now) / 864e5)) })).sort((x, y) => x.days - y.days);
-  const ev = (v.events || []).filter((e) => ["case_created", "payment_captured", "delivered", "refund_completed", "payment_refunded"].includes(e.type));
-  const evText = { case_created: "Bought", payment_captured: "Paid through PayPal", delivered: "Delivered", refund_completed: "Refunded", payment_refunded: "Refunded" };
+  const ev = (v.events || []).filter((e) => ["case_created", "payment_captured", "shipped", "delivered", "refund_completed", "payment_refunded"].includes(e.type));
+  const evText = { case_created: "Bought", payment_captured: "Paid through PayPal", shipped: "Shipped (tracking sent to PayPal)", delivered: "Delivered", refund_completed: "Refunded", payment_refunded: "Refunded" };
+  const shipped = (v.events || []).some((e) => e.type === "shipped");
   const excl = (v.policy?.extracted?.exclusions || []).map((x) => "Not returnable: " + x);
   openSheet(`<button class="btn-back small" onclick="sheet.close()">${I.back} Back</button><h2>${esc(c.title)}</h2><p class="muted">${esc(c.merchant)} · <b class="num" style="color:var(--ink)">${money(c.amount, c.currency)}</b> · ${cap(c.purpose)}</p>
     ${dls.length ? `<div style="display:grid;gap:12px;margin:16px 0">${dls.map((o) => `<div style="display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:center">
       <div class="viz">${o.days > 0 ? countdown(o.days, o.kind === "warranty" ? 365 : 30, o.days <= 3 ? "#C0392B" : "#1A7F4B") : `<div class="tile">${I.lock}</div>`}</div>
       <div><b>${LABEL[o.kind]}</b><br><span class="hint">${o.days > 0 ? `Until ${fmtDate(o.due_at)}` : "Closed"}${o.kind === "return_window" && notReturnable(c.title, excl) ? " · only if unopened" : ""}</span></div></div>`).join("")}</div>` : ""}
     ${ev.length ? `<div class="note">${ev.map((e) => `${evText[e.type]} · ${fmtDate(e.at)}`).join("<br>")}</div>` : ""}
-    ${c.payment_state === "captured" && c.purpose !== "business" ? `<button class="btn outline wide" id="wrong">Something wrong with it?</button><div id="wrongbox"></div>` : ""}`);
+    ${v.role === "seller" && c.payment_state === "captured" && !shipped ? `<button class="btn primary wide" id="ship">${I.lock} Mark shipped · send tracking to PayPal</button><div id="shipbox"></div>` : ""}
+    ${v.role !== "seller" && c.payment_state === "captured" && c.purpose !== "business" ? `<button class="btn outline wide" id="wrong">Something wrong with it?</button><div id="wrongbox"></div>` : ""}`);
+  $("#ship") && ($("#ship").onclick = async () => {
+    $("#ship").disabled = true;
+    const r = await api(`/api/cases/${id}/ship`, { body: {} });
+    $("#shipbox").innerHTML = r.ok ? `<div class="note ok">PayPal now has ${esc(r.carrier)} tracking ${esc(r.tracking_number)} on capture ${esc(r.capture_id)}.</div>`
+      : `<div class="note bad">${esc(r.error || r.detail || "Could not send tracking")}</div>`;
+    if (r.ok) setTimeout(() => openCase(id), 1200); else $("#ship").disabled = false;
+  });
   $("#wrong") && ($("#wrong").onclick = async () => {
     const r = await api(`/api/cases/${id}/refund-eligibility?issue=${encodeURIComponent("it stopped working")}`);
     const best = r.options.find((o) => o.permitted);
@@ -1036,15 +1045,15 @@ async function openCase(id) {
     if (hasSwap) btns += `<button class="btn ${best?.name === 'request_replacement' ? 'primary' : 'outline'} wide" id="doswap" style="margin-top:6px">${I.swap} Request Free Swap / Replacement</button>`;
     if (hasRefund) btns += `<button class="btn ${best?.name === 'request_refund' ? 'primary' : 'outline'} wide" id="dorefund" style="margin-top:6px">${I.lock} Ask for PayPal Refund</button>`;
     if (hasWarranty) btns += `<button class="btn outline wide" id="dowarranty" style="margin-top:6px">${I.bell} Claim Warranty Repair</button>`;
-    if (hasDispute) btns += `<button class="btn outline wide" id="dodispute" style="margin-top:6px">Escalate to PayPal Purchase Protection</button>`;
+    if (hasDispute) btns += `<button class="btn outline wide" id="dodispute" style="margin-top:6px">Prepare a PayPal Purchase Protection case</button>`;
 
     $("#wrongbox").innerHTML = btns || `<div class="note warn">The store's windows have closed. You can open a PayPal dispute.</div>`;
 
     $("#doswap") && ($("#doswap").onclick = async () => {
       const rr = await api(`/api/cases/${id}/resolution`, { body: { action: "request_replacement", issue: "faulty unit - free swap requested" } });
       if (rr.ok) {
-        $("#wrongbox").innerHTML = `<div class="note ok"><b>Free replacement swap initiated!</b> ${esc(c.merchant)} notified to send exchange unit. Anchored in briefcase.</div>`;
-        pushNote("Swap Requested", `${c.title} — Free replacement swap initiated.`);
+        $("#wrongbox").innerHTML = `<div class="note ok"><b>Swap request recorded.</b> ${esc(rr.message)}</div>`;
+        pushNote("Swap requested", `${c.title} — waiting for ${c.merchant} to confirm.`);
         setTimeout(() => openCase(id), 1200);
       } else {
         $("#wrongbox").innerHTML = `<div class="note bad">${esc(rr.error || "Could not request swap")}</div>`;
@@ -1054,8 +1063,8 @@ async function openCase(id) {
     $("#dowarranty") && ($("#dowarranty").onclick = async () => {
       const rr = await api(`/api/cases/${id}/resolution`, { body: { action: "warranty_claim", issue: "hardware repair under warranty" } });
       if (rr.ok) {
-        $("#wrongbox").innerHTML = `<div class="note ok"><b>Warranty repair claim registered!</b> Service ticket anchored in briefcase.</div>`;
-        pushNote("Warranty Claim", `${c.title} — Warranty repair claim registered.`);
+        $("#wrongbox").innerHTML = `<div class="note ok"><b>Warranty claim recorded.</b> ${esc(rr.message)}</div>`;
+        pushNote("Warranty claim", `${c.title} — waiting for ${c.merchant} to confirm.`);
         setTimeout(() => openCase(id), 1200);
       } else {
         $("#wrongbox").innerHTML = `<div class="note bad">${esc(rr.error || "Could not claim warranty")}</div>`;
@@ -1065,9 +1074,8 @@ async function openCase(id) {
     $("#dodispute") && ($("#dodispute").onclick = async () => {
       const rr = await api(`/api/cases/${id}/resolution`, { body: { action: "escalate_to_paypal_protection", issue: "buyer protection escalation" } });
       if (rr.ok) {
-        $("#wrongbox").innerHTML = `<div class="note ok"><b>Escalated to PayPal Protection!</b> Case reference logged with PayPal.</div>`;
-        pushNote("PayPal Dispute", `Case escalated to PayPal Purchase Protection.`);
-        setTimeout(() => openCase(id), 1200);
+        $("#wrongbox").innerHTML = `<div class="note ok"><b>Case file ready.</b> ${esc(rr.message)} <a href="${esc(rr.open_url)}" target="_blank" rel="noopener">Open PayPal Resolution Center</a></div>`;
+        pushNote("PayPal case", `${c.title} — case file ready; open it on PayPal.`);
       } else {
         $("#wrongbox").innerHTML = `<div class="note bad">${esc(rr.error || "Could not open dispute")}</div>`;
       }

@@ -92,6 +92,23 @@ def capture_safely(db: Session, case: Case, max_attempts: int = 3) -> dict:
     return {"ok": False, "error": "unresolved after retries; escalated", "trace": trace}
 
 
+def add_tracking_for_case(db: Session, case: Case, tracking_number: str, carrier: str = "USPS") -> dict:
+    """Seller ships: the tracking number goes to PayPal and comes back as verified evidence."""
+    if not (case.paypal_order_id and case.paypal_capture_id):
+        return {"ok": False, "error": "no verified PayPal capture on this case yet"}
+    try:
+        get_client().add_tracking(case.paypal_order_id, case.paypal_capture_id, tracking_number, carrier,
+                                  request_id=f"track-{case.id}-{tracking_number}")
+    except PayPalError as exc:
+        return {"ok": False, "error": f"PayPal refused the tracking info ({exc.status})"}
+    info = {"tracking_number": tracking_number, "carrier": carrier, "capture_id": case.paypal_capture_id}
+    bc.add_evidence(db, case, kind="paypal_tracking", source="paypal_api", provenance="verified",
+                    summary=f"Shipped: {carrier} {tracking_number}, registered with PayPal on capture "
+                            f"{case.paypal_capture_id}", content=info)
+    bc.add_event(db, case, "shipped", "paypal_api", info)
+    return {"ok": True, **info}
+
+
 def refund_safely(db: Session, case: Case, amount: float | None = None, reason: str = "") -> dict:
     if not case.paypal_capture_id:
         return {"ok": False, "error": "no verified capture on this case"}

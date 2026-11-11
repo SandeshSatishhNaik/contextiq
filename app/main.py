@@ -32,6 +32,7 @@ from .models import (
     LedgerEntry,
     Obligation,
     OutboundNotice,
+    Participant,
     User,
 )
 from .paypal import payments
@@ -455,6 +456,21 @@ def simulate_drop(case_id: str, body: CaptureIn, user: User = Depends(user_dep),
     captures = [c for c in mock.CAPTURES.values()
                 if c["supplementary_data"]["related_ids"]["order_id"] == db.get(Case, case_id).paypal_order_id]
     return res | {"paypal_captures_for_order": len(captures)}
+
+
+class ShipIn(BaseModel):
+    tracking_number: str = Field(default="9400111899223344556677", min_length=4, max_length=40)
+    carrier: str = Field(default="USPS", max_length=30)
+
+
+@app.post("/api/cases/{case_id}/ship")
+def ship(case_id: str, body: ShipIn, user: User = Depends(user_dep), db=Depends(db_dep, scope="function")):
+    """Seller marks the order shipped; the tracking number is sent to PayPal (Orders v2 Add Tracking)."""
+    case = _my_case(db, case_id, user)
+    part = db.scalar(select(Participant).where(Participant.case_id == case.id, Participant.party_id == user.id))
+    if not part or part.role != "seller":
+        raise HTTPException(403, "only the seller can add shipment tracking")
+    return payments.add_tracking_for_case(db, case, body.tracking_number.strip(), body.carrier.strip().upper())
 
 
 @app.post("/api/cases/{case_id}/delivered")

@@ -70,6 +70,7 @@ def checklist(db: Session, case: Case) -> list[dict]:
              ("Payment approved by you on PayPal", any(k in events for k in ("payment_buyer_approved", "payment_captured"))),
              ("Payment captured by PayPal", "payment_captured" in events)]
     if case.channel in ("online", "invoice"):
+        items.append(("Shipped, tracking registered with PayPal", "shipped" in events))
         items.append(("Delivery confirmed", "delivered" in events))
     if any(k.startswith("payment_refunded") or k == "payment_partially_refunded" for k in events):
         items.append(("Refund completed by PayPal", True))

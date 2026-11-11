@@ -363,3 +363,14 @@ def test_non_participant_cannot_act_on_case():
     assert c.get(f"/api/cases/{cid}/refund-eligibility", headers=stranger).status_code == 404
     assert c.post(f"/api/cases/{cid}/investigate", headers=stranger).status_code == 404
     assert c.post(f"/api/cases/{cid}/refund/approve", headers=stranger).status_code == 404
+
+
+def test_seller_ships_with_paypal_tracking():
+    cid, tok, r = _pay()
+    assert c.post(f"/api/cases/{cid}/ship", json={}, headers=H).status_code == 403  # buyer can't
+    s = c.post(f"/api/cases/{cid}/ship", json={"tracking_number": "1Z999AA10123456784", "carrier": "ups"},
+               headers={"X-User-Id": "brightmart"}).json()
+    assert s["ok"] and s["carrier"] == "UPS"
+    v = c.get(f"/api/cases/{cid}", headers=H).json()
+    assert any(e["kind"] == "paypal_tracking" and e["provenance"] == "verified" for e in v["evidence"])
+    assert any(i["item"].startswith("Shipped") and i["done"] for i in v["checklist"])

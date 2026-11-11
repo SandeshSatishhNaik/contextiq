@@ -112,6 +112,13 @@ class PayPalClient:
     def capture_order(self, order_id: str, request_id: str) -> dict:
         return self._request("POST", f"/v2/checkout/orders/{order_id}/capture", json={}, request_id=request_id)
 
+    def add_tracking(self, order_id: str, capture_id: str, tracking_number: str, carrier: str,
+                     request_id: str) -> dict:
+        """Orders v2 Add Tracking: attaches a shipment to the capture (used by PayPal for seller protection)."""
+        return self._request("POST", f"/v2/checkout/orders/{order_id}/track",
+                             json={"capture_id": capture_id, "tracking_number": tracking_number,
+                                   "carrier": carrier, "notify_payer": False}, request_id=request_id)
+
     # ------------------------------------------------------------- refunds
     def refund_capture(self, capture_id: str, *, request_id: str, amount: float | None = None,
                        currency: str | None = None, note: str = "") -> dict:
