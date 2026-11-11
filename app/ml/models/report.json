@@ -1,0 +1,231 @@
+{
+  "data": "Synthetic, seeded, generated in app/ml/synth.py; attacks in app/ml/redteam.py (separate generator).",
+  "router": {
+    "chosen": "char LR C=30 ngrams=(1, 6)",
+    "cv_macro_f1": {
+      "char LR C=3 ngrams=(2, 4)": 0.707,
+      "char LR C=3 ngrams=(2, 5)": 0.718,
+      "char LR C=3 ngrams=(1, 6)": 0.716,
+      "char LR C=10 ngrams=(2, 4)": 0.725,
+      "char LR C=10 ngrams=(2, 5)": 0.725,
+      "char LR C=10 ngrams=(1, 6)": 0.731,
+      "char LR C=30 ngrams=(2, 4)": 0.729,
+      "char LR C=30 ngrams=(2, 5)": 0.725,
+      "char LR C=30 ngrams=(1, 6)": 0.735,
+      "word LR C=3": 0.619,
+      "word LR C=10": 0.632,
+      "word LR C=30": 0.633,
+      "char SVM C=0.3": 0.734,
+      "char SVM C=1.0": 0.733,
+      "word NB alpha=0.1": 0.6,
+      "word NB alpha=0.3": 0.602,
+      "word NB alpha=1.0": 0.613,
+      "ensemble char LR + word LR (soft vote)": 0.727
+    },
+    "test_unseen_phrasings": {
+      "accuracy": 0.828,
+      "macro_f1": 0.833,
+      "accuracy_when_confident": 0.844,
+      "share_confident": 0.854
+    },
+    "baseline_majority_accuracy": 0.1,
+    "n_train": 1292,
+    "n_test": 233,
+    "how_used": "Keyword rules answer first; this model handles what rules miss; below 0.45 confidence the GenAI layer (if configured) is asked."
+  },
+  "purpose": {
+    "chosen": "LR C=16 class_weight=None",
+    "cv_macro_f1": {
+      "LR C=0.25 class_weight=None": 0.928,
+      "LR C=0.25 class_weight=balanced": 0.906,
+      "LR C=1 class_weight=None": 0.934,
+      "LR C=1 class_weight=balanced": 0.916,
+      "LR C=4 class_weight=None": 0.934,
+      "LR C=4 class_weight=balanced": 0.917,
+      "LR C=16 class_weight=None": 0.935,
+      "LR C=16 class_weight=balanced": 0.917
+    },
+    "test": {
+      "accuracy": 0.957,
+      "macro_f1": 0.93
+    },
+    "baseline_majority": {
+      "accuracy": 0.795,
+      "macro_f1": 0.443
+    },
+    "n_train": 8803,
+    "n_test": 1168,
+    "split": "test = unseen users AND merchant names never seen in training; labels include 3% noise",
+    "confusion_matrix": {
+      "labels": [
+        "personal",
+        "business"
+      ],
+      "matrix": [
+        [
+          921,
+          8
+        ],
+        [
+          42,
+          197
+        ]
+      ]
+    }
+  },
+  "category": {
+    "chosen": "LR C=4 class_weight=None",
+    "cv_macro_f1": {
+      "LR C=0.25 class_weight=None": 0.994,
+      "LR C=0.25 class_weight=balanced": 0.995,
+      "LR C=1 class_weight=None": 0.999,
+      "LR C=1 class_weight=balanced": 0.999,
+      "LR C=4 class_weight=None": 1.0,
+      "LR C=4 class_weight=balanced": 1.0,
+      "LR C=16 class_weight=None": 1.0,
+      "LR C=16 class_weight=balanced": 1.0
+    },
+    "test": {
+      "accuracy": 0.881,
+      "macro_f1": 0.896
+    },
+    "baseline_majority": {
+      "accuracy": 0.027,
+      "macro_f1": 0.004
+    },
+    "n_train": 8803,
+    "n_test": 1168,
+    "split": "test = unseen users AND merchant names never seen in training; labels include 3% noise"
+  },
+  "fraud": {
+    "chosen_learned_model": "GBM depth=2 lr=0.05",
+    "cv_average_precision": {
+      "GBM depth=2 lr=0.05": 0.966,
+      "GBM depth=2 lr=0.1": 0.936,
+      "GBM depth=3 lr=0.05": 0.96,
+      "GBM depth=3 lr=0.1": 0.945,
+      "random forest min_leaf=1": 0.961,
+      "random forest min_leaf=5": 0.964,
+      "logistic regression": 0.957
+    },
+    "false_alarm_rate_on_unseen_normal": {
+      "learned model": 0.024,
+      "anomaly detector": 0.024,
+      "rules": 0.006,
+      "all three combined": 0.024
+    },
+    "pr_auc_all_families": {
+      "learned model": 0.883,
+      "anomaly detector": 0.904
+    },
+    "recall_per_family": {
+      "account_takeover": {
+        "seen_in_training": true,
+        "learned model": 0.984,
+        "anomaly detector": 0.922,
+        "rules": 0.0,
+        "all three combined": 0.97
+      },
+      "amount_spike": {
+        "seen_in_training": true,
+        "learned model": 0.996,
+        "anomaly detector": 0.186,
+        "rules": 0.0,
+        "all three combined": 0.99
+      },
+      "payee_change": {
+        "seen_in_training": true,
+        "learned model": 0.914,
+        "anomaly detector": 0.268,
+        "rules": 0.0,
+        "all three combined": 0.914
+      },
+      "invoice_inflation": {
+        "seen_in_training": false,
+        "learned model": 0.042,
+        "anomaly detector": 0.316,
+        "rules": 0.0,
+        "all three combined": 0.048
+      },
+      "urgency_wording": {
+        "seen_in_training": false,
+        "learned model": 0.068,
+        "anomaly detector": 0.378,
+        "rules": 0.71,
+        "all three combined": 0.714
+      }
+    },
+    "invoice_check_catches_inflation": 1.0,
+    "note": "Held-out families were written in a separate generator and never used in training. Invoice inflation is caught by the invoice-vs-purchase-order check (a separate, deterministic step that holds every mismatch), not by the fraud models \u2014 report it that way."
+  },
+  "subscription": {
+    "chosen": "random forest min_leaf=1",
+    "cv_f1": {
+      "random forest min_leaf=1": 0.994,
+      "random forest min_leaf=3": 0.994,
+      "random forest min_leaf=10": 0.993,
+      "GBM depth=2": 0.993,
+      "GBM depth=3": 0.992,
+      "logistic regression": 0.953
+    },
+    "test": {
+      "precision": 1.0,
+      "recall": 0.994,
+      "f1": 0.997
+    },
+    "baseline_simple_rule": {
+      "precision": 1.0,
+      "recall": 0.646,
+      "f1": 0.785
+    },
+    "n_test": 1276,
+    "includes": "missed payments, price changes, and weekly shopping habits that look regular but aren't subscriptions"
+  },
+  "forecaster": {
+    "chosen": "profile=weekday shrink=0.6",
+    "mape_30_day_total": 0.181,
+    "baseline_last_30_days_mape": 0.213,
+    "p10_p90_range_contains_actual": 0.725,
+    "users": 80
+  },
+  "decision_model": {
+    "method": "weighted scoring over permitted options; weights learned by random local search (2,500 steps, Gaussian step 0.25 \u2192 0.10 \u2192 0.04, penalties constrained negative)",
+    "hand_set_weights_test_accuracy": 0.994,
+    "learned_weights_test_accuracy": 1.0,
+    "learned_weights": {
+      "benefit": 0.471,
+      "risk": -0.459,
+      "urgency": 0.436,
+      "reversibility": -0.145,
+      "evidence": 0.121,
+      "user_preference": 0.295,
+      "cost": -0.261
+    },
+    "search_improvements": [
+      {
+        "iteration": 1,
+        "train_accuracy": 1.0
+      }
+    ],
+    "order_invariance": 1.0,
+    "stable_under_20pct_weight_noise": 1.0,
+    "ground_truth": "written refund policy (replacement for defects, refund on request or for non-defects, warranty next, otherwise PayPal protection)"
+  },
+  "adaptive_bandit": {
+    "metric": "average tap rate on the top shortcut (higher is better)",
+    "results": {
+      "fixed order": 0.258,
+      "random": 0.276,
+      "epsilon-greedy (eps=0.1)": 0.525,
+      "UCB1": 0.507,
+      "Thompson sampling": 0.589,
+      "Thompson + forgetting (cap 50)": 0.585,
+      "Thompson + forgetting (cap 200)": 0.585
+    },
+    "best_possible_with_perfect_knowledge": 0.717,
+    "chosen": "Thompson sampling",
+    "setup": "150 simulated users, 9 shortcuts, 300 visits each, preferences change halfway"
+  },
+  "n_experiments": 53,
+  "training_seconds": 453.0
+}

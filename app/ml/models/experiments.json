@@ -1,0 +1,648 @@
+[
+ {
+  "model": "router",
+  "candidate": "char LR C=3 ngrams=(2, 4)",
+  "params": {
+   "features": "char_wb tf-idf",
+   "ngram_range": [
+    2,
+    4
+   ],
+   "C": 3
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.707,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "char LR C=3 ngrams=(2, 5)",
+  "params": {
+   "features": "char_wb tf-idf",
+   "ngram_range": [
+    2,
+    5
+   ],
+   "C": 3
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.718,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "char LR C=3 ngrams=(1, 6)",
+  "params": {
+   "features": "char_wb tf-idf",
+   "ngram_range": [
+    1,
+    6
+   ],
+   "C": 3
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.716,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "char LR C=10 ngrams=(2, 4)",
+  "params": {
+   "features": "char_wb tf-idf",
+   "ngram_range": [
+    2,
+    4
+   ],
+   "C": 10
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.725,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "char LR C=10 ngrams=(2, 5)",
+  "params": {
+   "features": "char_wb tf-idf",
+   "ngram_range": [
+    2,
+    5
+   ],
+   "C": 10
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.725,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "char LR C=10 ngrams=(1, 6)",
+  "params": {
+   "features": "char_wb tf-idf",
+   "ngram_range": [
+    1,
+    6
+   ],
+   "C": 10
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.731,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "char LR C=30 ngrams=(2, 4)",
+  "params": {
+   "features": "char_wb tf-idf",
+   "ngram_range": [
+    2,
+    4
+   ],
+   "C": 30
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.729,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "char LR C=30 ngrams=(2, 5)",
+  "params": {
+   "features": "char_wb tf-idf",
+   "ngram_range": [
+    2,
+    5
+   ],
+   "C": 30
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.725,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "char LR C=30 ngrams=(1, 6)",
+  "params": {
+   "features": "char_wb tf-idf",
+   "ngram_range": [
+    1,
+    6
+   ],
+   "C": 30
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.735,
+  "chosen": true
+ },
+ {
+  "model": "router",
+  "candidate": "word LR C=3",
+  "params": {
+   "features": "word 1-2gram tf-idf",
+   "C": 3
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.619,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "word LR C=10",
+  "params": {
+   "features": "word 1-2gram tf-idf",
+   "C": 10
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.632,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "word LR C=30",
+  "params": {
+   "features": "word 1-2gram tf-idf",
+   "C": 30
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.633,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "char SVM C=0.3",
+  "params": {
+   "features": "char_wb tf-idf",
+   "C": 0.3,
+   "calibration": "sigmoid, 3-fold"
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.734,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "char SVM C=1.0",
+  "params": {
+   "features": "char_wb tf-idf",
+   "C": 1.0,
+   "calibration": "sigmoid, 3-fold"
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.733,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "word NB alpha=0.1",
+  "params": {
+   "alpha": 0.1
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.6,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "word NB alpha=0.3",
+  "params": {
+   "alpha": 0.3
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.602,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "word NB alpha=1.0",
+  "params": {
+   "alpha": 1.0
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.613,
+  "chosen": false
+ },
+ {
+  "model": "router",
+  "candidate": "ensemble char LR + word LR (soft vote)",
+  "params": {
+   "members": "char LR C=10 (2,5) + word LR C=10",
+   "voting": "soft"
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.727,
+  "chosen": false
+ },
+ {
+  "model": "purpose",
+  "candidate": "LR C=0.25 class_weight=None",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 0.25,
+   "class_weight": null
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.928,
+  "chosen": false
+ },
+ {
+  "model": "purpose",
+  "candidate": "LR C=0.25 class_weight=balanced",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 0.25,
+   "class_weight": "balanced"
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.906,
+  "chosen": false
+ },
+ {
+  "model": "purpose",
+  "candidate": "LR C=1 class_weight=None",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 1,
+   "class_weight": null
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.934,
+  "chosen": false
+ },
+ {
+  "model": "purpose",
+  "candidate": "LR C=1 class_weight=balanced",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 1,
+   "class_weight": "balanced"
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.916,
+  "chosen": false
+ },
+ {
+  "model": "purpose",
+  "candidate": "LR C=4 class_weight=None",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 4,
+   "class_weight": null
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.934,
+  "chosen": false
+ },
+ {
+  "model": "purpose",
+  "candidate": "LR C=4 class_weight=balanced",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 4,
+   "class_weight": "balanced"
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.917,
+  "chosen": false
+ },
+ {
+  "model": "purpose",
+  "candidate": "LR C=16 class_weight=None",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 16,
+   "class_weight": null
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.935,
+  "chosen": true
+ },
+ {
+  "model": "purpose",
+  "candidate": "LR C=16 class_weight=balanced",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 16,
+   "class_weight": "balanced"
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.917,
+  "chosen": false
+ },
+ {
+  "model": "category",
+  "candidate": "LR C=0.25 class_weight=None",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 0.25,
+   "class_weight": null
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.994,
+  "chosen": false
+ },
+ {
+  "model": "category",
+  "candidate": "LR C=0.25 class_weight=balanced",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 0.25,
+   "class_weight": "balanced"
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.995,
+  "chosen": false
+ },
+ {
+  "model": "category",
+  "candidate": "LR C=1 class_weight=None",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 1,
+   "class_weight": null
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.999,
+  "chosen": false
+ },
+ {
+  "model": "category",
+  "candidate": "LR C=1 class_weight=balanced",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 1,
+   "class_weight": "balanced"
+  },
+  "metric": "f1_macro",
+  "cv_score": 0.999,
+  "chosen": false
+ },
+ {
+  "model": "category",
+  "candidate": "LR C=4 class_weight=None",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 4,
+   "class_weight": null
+  },
+  "metric": "f1_macro",
+  "cv_score": 1.0,
+  "chosen": true
+ },
+ {
+  "model": "category",
+  "candidate": "LR C=4 class_weight=balanced",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 4,
+   "class_weight": "balanced"
+  },
+  "metric": "f1_macro",
+  "cv_score": 1.0,
+  "chosen": false
+ },
+ {
+  "model": "category",
+  "candidate": "LR C=16 class_weight=None",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 16,
+   "class_weight": null
+  },
+  "metric": "f1_macro",
+  "cv_score": 1.0,
+  "chosen": false
+ },
+ {
+  "model": "category",
+  "candidate": "LR C=16 class_weight=balanced",
+  "params": {
+   "features": "char tf-idf of payee|description|channel + hour, weekday, log amount, owner flag",
+   "C": 16,
+   "class_weight": "balanced"
+  },
+  "metric": "f1_macro",
+  "cv_score": 1.0,
+  "chosen": false
+ },
+ {
+  "model": "fraud",
+  "candidate": "GBM depth=2 lr=0.05",
+  "params": {
+   "max_depth": 2,
+   "learning_rate": 0.05,
+   "n_estimators": 200,
+   "subsample": 0.8
+  },
+  "metric": "average_precision",
+  "cv_score": 0.966,
+  "chosen": true
+ },
+ {
+  "model": "fraud",
+  "candidate": "GBM depth=2 lr=0.1",
+  "params": {
+   "max_depth": 2,
+   "learning_rate": 0.1,
+   "n_estimators": 200,
+   "subsample": 0.8
+  },
+  "metric": "average_precision",
+  "cv_score": 0.936,
+  "chosen": false
+ },
+ {
+  "model": "fraud",
+  "candidate": "GBM depth=3 lr=0.05",
+  "params": {
+   "max_depth": 3,
+   "learning_rate": 0.05,
+   "n_estimators": 200,
+   "subsample": 0.8
+  },
+  "metric": "average_precision",
+  "cv_score": 0.96,
+  "chosen": false
+ },
+ {
+  "model": "fraud",
+  "candidate": "GBM depth=3 lr=0.1",
+  "params": {
+   "max_depth": 3,
+   "learning_rate": 0.1,
+   "n_estimators": 200,
+   "subsample": 0.8
+  },
+  "metric": "average_precision",
+  "cv_score": 0.945,
+  "chosen": false
+ },
+ {
+  "model": "fraud",
+  "candidate": "random forest min_leaf=1",
+  "params": {
+   "n_estimators": 300,
+   "min_samples_leaf": 1
+  },
+  "metric": "average_precision",
+  "cv_score": 0.961,
+  "chosen": false
+ },
+ {
+  "model": "fraud",
+  "candidate": "random forest min_leaf=5",
+  "params": {
+   "n_estimators": 300,
+   "min_samples_leaf": 5
+  },
+  "metric": "average_precision",
+  "cv_score": 0.964,
+  "chosen": false
+ },
+ {
+  "model": "fraud",
+  "candidate": "logistic regression",
+  "params": {
+   "C": 1.0
+  },
+  "metric": "average_precision",
+  "cv_score": 0.957,
+  "chosen": false
+ },
+ {
+  "model": "subscription",
+  "candidate": "random forest min_leaf=1",
+  "params": {
+   "n_estimators": 300,
+   "min_samples_leaf": 1
+  },
+  "metric": "f1",
+  "cv_score": 0.994,
+  "chosen": true
+ },
+ {
+  "model": "subscription",
+  "candidate": "random forest min_leaf=3",
+  "params": {
+   "n_estimators": 300,
+   "min_samples_leaf": 3
+  },
+  "metric": "f1",
+  "cv_score": 0.994,
+  "chosen": false
+ },
+ {
+  "model": "subscription",
+  "candidate": "random forest min_leaf=10",
+  "params": {
+   "n_estimators": 300,
+   "min_samples_leaf": 10
+  },
+  "metric": "f1",
+  "cv_score": 0.993,
+  "chosen": false
+ },
+ {
+  "model": "subscription",
+  "candidate": "GBM depth=2",
+  "params": {
+   "max_depth": 2,
+   "n_estimators": 100
+  },
+  "metric": "f1",
+  "cv_score": 0.993,
+  "chosen": false
+ },
+ {
+  "model": "subscription",
+  "candidate": "GBM depth=3",
+  "params": {
+   "max_depth": 3,
+   "n_estimators": 100
+  },
+  "metric": "f1",
+  "cv_score": 0.992,
+  "chosen": false
+ },
+ {
+  "model": "subscription",
+  "candidate": "logistic regression",
+  "params": {
+   "C": 1.0
+  },
+  "metric": "f1",
+  "cv_score": 0.953,
+  "chosen": false
+ },
+ {
+  "model": "forecaster",
+  "candidate": "profile=weekday shrink=0.0",
+  "params": {
+   "profile": "weekday",
+   "shrink_to_population": 0.0,
+   "n_sims": 400
+  },
+  "metric": "validation MAPE (lower is better)",
+  "cv_score": 0.182,
+  "chosen": false
+ },
+ {
+  "model": "forecaster",
+  "candidate": "profile=weekday shrink=0.3",
+  "params": {
+   "profile": "weekday",
+   "shrink_to_population": 0.3,
+   "n_sims": 400
+  },
+  "metric": "validation MAPE (lower is better)",
+  "cv_score": 0.182,
+  "chosen": false
+ },
+ {
+  "model": "forecaster",
+  "candidate": "profile=weekday shrink=0.6",
+  "params": {
+   "profile": "weekday",
+   "shrink_to_population": 0.6,
+   "n_sims": 400
+  },
+  "metric": "validation MAPE (lower is better)",
+  "cv_score": 0.181,
+  "chosen": true
+ },
+ {
+  "model": "forecaster",
+  "candidate": "profile=flat shrink=0.0",
+  "params": {
+   "profile": "flat",
+   "shrink_to_population": 0.0,
+   "n_sims": 400
+  },
+  "metric": "validation MAPE (lower is better)",
+  "cv_score": 0.182,
+  "chosen": false
+ },
+ {
+  "model": "forecaster",
+  "candidate": "profile=flat shrink=0.3",
+  "params": {
+   "profile": "flat",
+   "shrink_to_population": 0.3,
+   "n_sims": 400
+  },
+  "metric": "validation MAPE (lower is better)",
+  "cv_score": 0.182,
+  "chosen": false
+ },
+ {
+  "model": "forecaster",
+  "candidate": "profile=flat shrink=0.6",
+  "params": {
+   "profile": "flat",
+   "shrink_to_population": 0.6,
+   "n_sims": 400
+  },
+  "metric": "validation MAPE (lower is better)",
+  "cv_score": 0.181,
+  "chosen": false
+ }
+]

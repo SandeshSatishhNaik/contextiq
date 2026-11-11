@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "ContextIQ — check before you pay",
+  "version": "0.1.0",
+  "description": "Reads the cart on this page (only when you click) and shows return terms, budget impact and price history from ContextIQ.",
+  "action": { "default_popup": "popup.html", "default_title": "ContextIQ" },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["http://localhost:8000/*"]
+}

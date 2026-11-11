@@ -1,0 +1,66 @@
+{
+  "pretraining": {
+    "mlm_loss_start": 3.979,
+    "mlm_loss_end": 0.883,
+    "epochs": 4,
+    "batch": 64,
+    "lr": 0.001,
+    "texts": 12000,
+    "encoder_params": 644608
+  },
+  "train_sentences": 4800,
+  "unseen_test_sentences": 480,
+  "labels": [
+    "return_window",
+    "replacement",
+    "warranty",
+    "exclusion",
+    "condition",
+    "shipping_cost",
+    "refund_method",
+    "other"
+  ],
+  "results": {
+    "LoRA r=4": {
+      "trainable_params": 7176,
+      "val_accuracy": 0.516,
+      "unseen_accuracy": 0.475,
+      "unseen_macro_f1": 0.463
+    },
+    "LoRA r=8": {
+      "trainable_params": 13320,
+      "val_accuracy": 0.5,
+      "unseen_accuracy": 0.56,
+      "unseen_macro_f1": 0.536
+    },
+    "LoRA r=16": {
+      "trainable_params": 25608,
+      "val_accuracy": 0.569,
+      "unseen_accuracy": 0.544,
+      "unseen_macro_f1": 0.547
+    },
+    "full fine-tune": {
+      "trainable_params": 645640,
+      "val_accuracy": 0.506,
+      "unseen_accuracy": 0.479,
+      "unseen_macro_f1": 0.482
+    },
+    "head only (frozen encoder)": {
+      "trainable_params": 1032,
+      "val_accuracy": 0.353,
+      "unseen_accuracy": 0.533,
+      "unseen_macro_f1": 0.506
+    },
+    "TF-IDF + logistic regression (no neural net)": {
+      "trainable_params": null,
+      "val_accuracy": 0.928,
+      "unseen_accuracy": 0.792,
+      "unseen_macro_f1": 0.78
+    }
+  },
+  "best_neural_on_dev": "LoRA r=16",
+  "deployed": "TF-IDF + logistic regression (no neural net)",
+  "validation": "a third, different writing style (dev) \u2014 never trained on, never the final test",
+  "best_lora": "LoRA r=16",
+  "seconds": 753.2
+}

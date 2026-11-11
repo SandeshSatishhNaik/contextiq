@@ -1,0 +1,182 @@
+{
+  "seed": 2027,
+  "router_dev_set": {
+    "n": 100,
+    "model_alone": {
+      "accuracy": 0.88,
+      "macro_f1": 0.876
+    },
+    "app_model_then_rules": {
+      "accuracy": 0.88,
+      "macro_f1": 0.876
+    },
+    "per_topic_accuracy_app": {
+      "refund": 0.6,
+      "payment_status": 0.9,
+      "policy": 0.9,
+      "budget": 0.8,
+      "invoice": 1.0,
+      "fraud": 0.6,
+      "subscription": 1.0,
+      "investment": 1.0,
+      "price": 1.0,
+      "cases": 1.0
+    },
+    "examples_wrong": [
+      {
+        "text": "bought earbuds last week and the left one is dead, what are my options",
+        "truth": "refund",
+        "got": "cases"
+      },
+      {
+        "text": "i want to return this, it is not what was shown in the photo",
+        "truth": "refund",
+        "got": "policy"
+      },
+      {
+        "text": "product stopped charging after 3 days kindly help",
+        "truth": "refund",
+        "got": "payment_status"
+      },
+      {
+        "text": "watch strap broke on day 2, warranty?",
+        "truth": "refund",
+        "got": "policy"
+      },
+      {
+        "text": "my transaction is showing pending since yesterday",
+        "truth": "payment_status",
+        "got": "cases"
+      },
+      {
+        "text": "is accidental damage covered",
+        "truth": "policy",
+        "got": "refund"
+      },
+      {
+        "text": "am i over my limit",
+        "truth": "budget",
+        "got": "cases"
+      },
+      {
+        "text": "monthly expense breakdown please",
+        "truth": "budget",
+        "got": "subscription"
+      }
+    ]
+  },
+  "router": {
+    "n": 100,
+    "model_alone": {
+      "accuracy": 0.88,
+      "macro_f1": 0.883
+    },
+    "app_model_then_rules": {
+      "accuracy": 0.88,
+      "macro_f1": 0.883
+    },
+    "per_topic_accuracy_app": {
+      "refund": 0.9,
+      "payment_status": 0.8,
+      "policy": 0.8,
+      "budget": 0.8,
+      "invoice": 1.0,
+      "fraud": 0.8,
+      "subscription": 1.0,
+      "investment": 0.8,
+      "price": 0.9,
+      "cases": 1.0
+    },
+    "examples_wrong": [
+      {
+        "text": "camera lens is scratched out of the box",
+        "truth": "refund",
+        "got": "price"
+      },
+      {
+        "text": "my transfer is under review?",
+        "truth": "payment_status",
+        "got": "invoice"
+      },
+      {
+        "text": "was the capture successful for the headphones",
+        "truth": "payment_status",
+        "got": "refund"
+      },
+      {
+        "text": "do they give free return pickup",
+        "truth": "policy",
+        "got": "refund"
+      },
+      {
+        "text": "can i exchange instead of refund",
+        "truth": "policy",
+        "got": "refund"
+      },
+      {
+        "text": "too much on eating out?",
+        "truth": "budget",
+        "got": "subscription"
+      },
+      {
+        "text": "how much did transport cost me",
+        "truth": "budget",
+        "got": "investment"
+      },
+      {
+        "text": "i got a refund request i never made",
+        "truth": "fraud",
+        "got": "refund"
+      }
+    ]
+  },
+  "transactions": {
+    "n": 10935,
+    "purpose": {
+      "accuracy": 0.955,
+      "macro_f1": 0.933
+    },
+    "category": {
+      "accuracy": 0.971,
+      "macro_f1": 0.973
+    },
+    "business_payments_at_night_recognised": 0.858
+  },
+  "fraud": {
+    "n_payments": 10000,
+    "fraud_rate": 0.01,
+    "caught_recall": 0.91,
+    "precision_of_alerts": 0.146,
+    "false_alarm_rate": 0.054,
+    "alerts_per_1000_payments": 62.2,
+    "caught_per_attack_type_stealthier": {
+      "account_takeover": 0.85,
+      "amount_spike": 0.9,
+      "payee_change": 0.95,
+      "invoice_inflation": 1.0,
+      "urgency_wording": 0.85
+    },
+    "note": "Invoice inflation is handled by the invoice check, which holds every invoice above its PO."
+  },
+  "subscriptions": {
+    "n": 3000,
+    "precision": 0.994,
+    "recall": 0.998,
+    "f1": 0.996,
+    "shift": "35% of recurring items are variable utility bills (5% in training)"
+  },
+  "forecast": {
+    "users": 60,
+    "mape_30_day": 0.197,
+    "range_contains_actual": 0.717
+  },
+  "decision": {
+    "n": 1000,
+    "agreement_with_policy": 1.0
+  },
+  "bandit": {
+    "thompson": 0.591,
+    "fixed_order": 0.277,
+    "best_possible": 0.72
+  }
+}

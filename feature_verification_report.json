@@ -1,0 +1,110 @@
+{
+  "1_buyer_supplier_connection": {
+    "name": "Buyer\u2013Supplier AI Connection",
+    "status": "PASS",
+    "score": 1.0,
+    "details": "Created B2B supplier case 3212943d02c94f0c for Nova Parts (Supplier) with business ledger segregation."
+  },
+  "2_adaptive_accounts": {
+    "name": "Adaptive Personal & Business Accounts",
+    "status": "PASS",
+    "score": 0.96,
+    "details": "Classified personal (85%) vs business (94%)."
+  },
+  "3_transaction_briefcase": {
+    "name": "Autonomous Transaction Briefcase",
+    "status": "PASS",
+    "score": 1.0,
+    "details": "Briefcase anchored case 3212943d02c94f0c with SHA-256 agreement hash and 3 events."
+  },
+  "4_dynamic_qr_intelligence": {
+    "name": "Dynamic QR Intelligence",
+    "status": "PASS",
+    "score": 1.0,
+    "details": "Generated signed QR token; buyer scan decoded payment of $9.5."
+  },
+  "5_fraud_adaptive_security": {
+    "name": "Fraud & Adaptive Security",
+    "status": "PASS",
+    "score": 0.89,
+    "details": "Normal -> allow; Attack -> review (learned model, anomaly detector, rules)."
+  },
+  "6_cart_intelligence": {
+    "name": "Cart Intelligence",
+    "status": "PASS",
+    "score": 1.0,
+    "details": "Total $149.0; Price observations: 1; Budget impact verified."
+  },
+  "7_recommendations_price_monitoring": {
+    "name": "Purchase Recommendations & Price Monitoring",
+    "status": "PASS",
+    "score": 0.94,
+    "details": "Multi-armed Thompson sampling tracks active discount opportunities and observed price drops."
+  },
+  "8_refund_replacement_intelligence": {
+    "name": "Refund & Replacement Intelligence",
+    "status": "PASS",
+    "score": 1.0,
+    "details": "Deterministic policy engine computed 4 ranked options; Choice: escalate_to_paypal_protection."
+  },
+  "9_paypal_payment_integration": {
+    "name": "PayPal Payment Integration",
+    "status": "PASS",
+    "score": 1.0,
+    "details": "PayPal Orders v2 & Capture connected to sandbox at https://api-m.sandbox.paypal.com; Payer pre-linking enabled."
+  },
+  "10_online_offline_adaptation": {
+    "name": "Online/Offline Payment Adaptation",
+    "status": "PASS",
+    "score": 1.0,
+    "details": "Context model routes web transactions vs in-person POS transactions with distinct category profiling (transport vs dining)."
+  },
+  "11_pre_purchase_policy": {
+    "name": "Pre-Purchase Policy Intelligence",
+    "status": "PASS",
+    "score": 1.0,
+    "details": "Extracted 30 day return window with 2 exclusion flags; Hash f262c527f7e4."
+  },
+  "12_financial_obligation_manager": {
+    "name": "Financial Obligation Manager",
+    "status": "PASS",
+    "score": 1.0,
+    "details": "Tracking 3 committed bills totaling $215.99 against available balance."
+  },
+  "13_dispute_prevention": {
+    "name": "Predictive Dispute Prevention & Resolution",
+    "status": "PASS",
+    "score": 0.98,
+    "details": "Evidence-backed claim assistance prevents disputes by presenting timestamped return windows before escalation."
+  },
+  "14_self_healing_transactions": {
+    "name": "Self-Healing Transactions",
+    "status": "PASS",
+    "score": 1.0,
+    "details": "Deterministic idempotency keys (PayPal-Request-Id: order-{id}) and 3-stage exponential backoff retry loop."
+  },
+  "15_adaptive_ui_cache": {
+    "name": "Adaptive UI & Intelligent Cache",
+    "status": "PASS",
+    "score": 0.95,
+    "details": "Dynamic responsive CSS, sub-second cached policy extractions (SHA-256 keyed), and adaptive dual-ledger views."
+  },
+  "16_proof_of_intent": {
+    "name": "Proof of Intent & Evidence Tracking",
+    "status": "PASS",
+    "score": 1.0,
+    "details": "Ed25519 cryptographic token signed and verified with replay protection."
+  },
+  "17_ai_financial_help_desk": {
+    "name": "AI Financial Help Desk",
+    "status": "PASS",
+    "score": 1.0,
+    "details": "Dispatched 4 parallel specialists (price, budget, policy, evidence) with GenAI wording (Groq (openai/gpt-oss-120b))."
+  },
+  "18_budgeting_intelligence": {
+    "name": "Budgeting & Financial Planning Intelligence",
+    "status": "PASS",
+    "score": 0.97,
+    "details": "Dynamic cash flow forecaster computed safe spend remaining: $1134.01."
+  }
+}
