@@ -4,7 +4,25 @@
 evidence-backed *briefcase* — and puts one AI orchestrator on top that explains before you buy, remembers
 what was promised, and fixes what goes wrong. AI proposes; deterministic code decides whether money moves.
 
-Built for the PayPal AI Hackathon (Devpost).
+Built for the PayPal AI Hackathon (Devpost) by team Avoflare. Licensed under Apache-2.0.
+
+## Try it
+
+- **Hosted demo (PayPal sandbox):** https://contextiq-0ihy.onrender.com. It runs on Render's free tier, so the first
+  load after a quiet spell can take about a minute, and demo data is re-seeded when the service wakes.
+- **PayPal sandbox buyer login:** in the Devpost submission's test-credentials field (not in this repo).
+- **Judge walkthrough (about 5 minutes):**
+  1. Cart → *Pay with PayPal* → log in as the sandbox buyer in the PayPal popup and approve. The payment is
+     captured only after the security gateway allows it.
+  2. Switch user to **BrightMart** (the seller), open the purchase → *Mark shipped*. The tracking number is
+     sent to PayPal and shows up as verified evidence.
+  3. As the sandbox buyer at https://www.sandbox.paypal.com, open the Resolution Center and report the item
+     as not received.
+  4. Back as BrightMart, open the purchase → *Check PayPal for disputes* → *Prepare a response from the
+     briefcase*. Review the draft, then *Approve & send this evidence to PayPal*.
+  5. *Sandbox: ask PayPal to decide* resolves the case. The console (`/console`) shows every gateway decision.
+- **Identity is a demo header** (`X-User-Id`, switched from the user menu). There is no login; do not reuse
+  this pattern in production.
 
 ## What it can do
 
@@ -18,7 +36,7 @@ Built for the PayPal AI Hackathon (Devpost).
 - **Personal vs business:** files each payment to the right account, remembers your answer, and asks only when unsure.
 
 ### Paying
-- **PayPal integration:** orders, approval, capture, refunds, invoicing, disputes and verified webhooks over PayPal's REST API.
+- **PayPal integration:** orders, approval, capture, refunds, shipment tracking, disputes and verified webhooks over PayPal's REST API.
 - **Self-healing payments:** after a dropped connection it checks PayPal before retrying, using idempotency keys, so it never charges twice.
 - **Security gateway:** every money action needs explicit approval, a permission check, a risk check and limits, and is written to an audit log. Step-up verification starts at $500 ($200 for a new payee).
 - **Online and in-person:** online checkouts and counter QR payments are handled differently.
@@ -27,6 +45,7 @@ Built for the PayPal AI Hackathon (Devpost).
 - **Transaction briefcase:** an append-only record per purchase holding the agreement, receipts, terms, deadlines and evidence. Each item is labelled `verified`, `claimed` or `inferred`.
 - **Proof of intent:** a hash of exactly what you agreed to, compared with what actually happened.
 - **Refunds and replacements:** checks your entitlement (return window, replacement window, warranty), prepares the claim and tracks it. Only the seller can approve a refund.
+- **PayPal dispute responses:** when a buyer opens a PayPal dispute, the seller's agent drafts the evidence from the briefcase (PayPal tracking, the agreed items and amount, the saved store terms), recommends fight or accept, and sends only the draft the seller approved.
 - **Dispute prevention:** catches invoice vs purchase-order mismatches early and lines up both sides' claims against the evidence.
 - **Bills and obligations:** bills, subscriptions, return deadlines and supplier payments, with checklists that tick themselves.
 
@@ -60,12 +79,12 @@ The same list, with where each feature lives and how real it is, is in `app/feat
 
 ```bash
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.txt  # requirements-ml.txt adds torch + peft for training and the LoRA model
 cp .env.example .env            # PAYPAL_ENV=mock works offline; see "PayPal sandbox" below
 python -m app.ml.train          # trains every model with hyperparameter search (~7 min), writes MODEL_REPORT.md
 python run.py                   # http://localhost:8000
-pytest -q                       # 28 end-to-end tests
-python -m app.ml.lora_policy    # optional: LoRA policy model (PyTorch + peft, ~12 min on CPU)
+pip install -r requirements-dev.txt && pytest -q   # 34 end-to-end tests (mock mode)
+python -m app.ml.lora_policy    # optional, needs requirements-ml.txt: LoRA policy model (~12 min on CPU)
 python -m app.ml.evaluate_unseen  # final test on unseen, shifted data (~4 min)
 ```
 
@@ -125,8 +144,9 @@ address set `PUBLIC_BASE_URL` to that exact origin (passkeys are tied to it).
 
 Activity → a purchase with a connected seller → **Connect with the seller's agent**. Each agent has a registry-signed
 identity card (Ed25519); every message is signed and checked for freshness and replays; each side shares only its
-allowed fields; *Test: tamper with a message* shows a rejected message. Another ContextIQ instance can deliver
-envelopes to `POST /a2a/inbox`.
+allowed fields; *Test: tamper with a message* shows a rejected message. Both agents run on this server today;
+`POST /a2a/inbox` accepts envelopes from agents registered with this server's registry key. Cross-instance
+discovery (Google A2A agent cards) is future work.
 
 ### MCP server (use ContextIQ from Claude Desktop or any MCP client)
 
@@ -155,7 +175,10 @@ ContextIQ icon. It reads the cart only when you click, never edits the page, and
 
 | Part | Status |
 | --- | --- |
-| PayPal Orders v2, capture, refunds, invoicing, disputes, webhook verification | Real REST calls (`app/paypal/adapter.py`); tested offline against a PayPal-shaped mock, and by `sandbox_check.py` against the sandbox |
+| PayPal Orders v2 (create, get, capture), Add Tracking | Real REST calls (`app/paypal/adapter.py`), verified against the sandbox |
+| PayPal refunds, Disputes v1 (list, get, provide-evidence, accept-claim, sandbox require-evidence/adjudicate), webhook verification | Real REST calls; dispute list/get verified in sandbox, the full loop tested against the PayPal-shaped mock |
+| PayPal Invoicing v2 | Adapter methods only; not wired into the app yet |
+| Carrier delivery scan ("Mark delivered") | Simulated; PayPal tracking is real |
 | Self-healing payment, duplicate-charge protection | Real (`PayPal-Request-Id` + read-before-retry) |
 | Security gateway, approvals, step-up, audit | Real, policy as code |
 | Signed QR (Ed25519, nonce, expiry, replay block) | Real |
@@ -209,7 +232,10 @@ treat these as a pipeline check, not production accuracy. Next step: external ch
    injection ignored, budget what-if, price history.
 2. *Agree and continue* → approve on PayPal → tick *Simulate a dropped connection* → *Complete payment*:
    step-up for a new payee, then the connection drops and ContextIQ shows **1 charge at PayPal**.
-3. Briefcase: stamps show who vouches for each fact. *Mark delivered* → *Can I return this?*
+3. Briefcase: stamps show who vouches for each fact. As the seller, *Mark shipped* (tracking goes to PayPal);
+   as the buyer, *Can I return this?*
+3b. Buyer opens a PayPal dispute → seller *Prepare a response from the briefcase* → approve → evidence goes to
+   PayPal.
 4. Ask: "Why does my supplier say payment wasn't received?" → PayPal-verified answer, don't pay twice.
 5. Business: invoice vs purchase order mismatch caught before payment; signed counter QR (replay rejected).
 6. Trust: fraud catch rate per attack type, gateway decisions, cache and token metrics.

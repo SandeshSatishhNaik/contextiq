@@ -1,92 +1,75 @@
-# ContextIQ — Context-Aware Autonomous Financial Intelligence for PayPal
+# ContextIQ: the AI agent that keeps working after you pay
 
-> **Tagline:** Turning PayPal from a passive transaction rail into an active, context-aware financial guardian that protects cash flow, verifies merchant policies, and automates post-purchase rights.
+> Every PayPal payment gets an evidence briefcase. When a buyer opens a PayPal dispute, ContextIQ answers it from that briefcase, and a person approves before anything is sent.
 
----
-
-## 💡 Inspiration: The Blind Checkout Problem
-
-Every day, billions of dollars move across payment rails where checkout remains completely blind to context. A traditional checkout button knows a card number and an amount, but it is blind to reality:
-1. **It doesn't know if you can actually afford it**: It doesn't see that your \$1,200 rent is due in 3 days, making a \$150 gadget purchase push your account into overdraft.
-2. **It doesn't know what the store promised**: If the merchant had a "30-day no-questions refund" banner that quietly excludes opened electronics in fine print, standard checkout doesn't capture it.
-3. **It forgets the transaction the moment it ends**: Once captured, you are left to track return windows, warranty deadlines, and supplier discrepancies on your own.
-4. **B2B buyers face invoice inflation**: When a supplier sends an invoice that quietly tacks on an unagreed +11.6% freight surcharge, standard payment buttons blindly process it.
-
-We built **ContextIQ** to solve this. ContextIQ surrounds PayPal's world-class payment rails with an intelligent multi-agent system, autonomous cryptographic briefcases, and predictive machine learning models. It makes checkout context-aware before you pay, resilient while you pay, and protective long after you pay.
+**Try it:** https://contextiq-0ihy.onrender.com (free hosting: the first load can take about a minute) · **Code:** https://github.com/SandeshSatishhNaik/contextiq (Apache-2.0) · **Team:** Avoflare
 
 ---
 
-## 🚀 What ContextIQ Does
+## Inspiration
 
-ContextIQ acts as a trusted co-pilot across the entire transaction lifecycle:
+Checkout knows a card and an amount. It forgets everything else the moment the payment completes: what the store promised, what exactly the buyer agreed to, whether the item shipped. Weeks later a dispute arrives, and the seller has to reconstruct all of it by hand, under a deadline, or lose the money.
 
-1. **Pre-Purchase Cart & Cashflow Intelligence**: Before you commit, ContextIQ evaluates your live liquid cash against upcoming committed obligations (bills, rent, subscriptions) and projects your cash balance until next payday.
-2. **Policy Scraping & Verification**: At the moment of purchase, ContextIQ scrapes, hashes, and extracts the merchant's return and warranty terms, flagging hidden hygiene or restocking fee exclusions.
-3. **The Autonomous Transaction Briefcase**: Every purchase is bound to an immutable cryptographic briefcase anchored with SHA-256 agreement hashes, policy snapshots, and an Ed25519-signed proof of intent.
-4. **Adaptive Personal & Business Dual-Use Split**: Classifies purchases into personal vs. business accounts with a single-tap override for ambiguous items.
-5. **Multi-Layer Fraud & Attack Defense**: A 3-layer ensemble (Gradient Boosted Trees + Isolation Forest + Deterministic Payment-Signal Rules) catches urgency scams, payee tampering, and invoice inflation.
-6. **Self-Healing PayPal Checkouts**: Uses deterministic idempotency keys (`PayPal-Request-Id`) to survive dropped connections and browser crashes without duplicate charges.
-7. **Post-Purchase Obligation Management & Multi-Remedy Execution**: Tracks return windows, replacement eligibility, and warranty countdowns on the dashboard. Instead of only offering basic refunds, ContextIQ dynamically ranks and executes 4 distinct remedies based on store policy: **Free Unit Swap / Replacement**, **PayPal Full Refund**, **Manufacturer Warranty Repair**, or **PayPal Purchase Protection Escalation**.
+PayPal already has the rails for the hard part: shipment tracking, the Disputes API, seller protection. What is missing is an agent that collects the evidence *while the purchase happens* and uses it when it matters.
 
----
+## What it does
 
-## 🛠️ Deep PayPal Integration: 7 Primitives
+1. **Before you pay.** Saves the store's return and warranty terms as they were at checkout, checks the purchase against your bills and payday, and records a SHA-256 fingerprint of exactly what you agreed to (items, amount, payee).
+2. **While you pay.** Checkout runs on PayPal Orders v2. A security gateway (policy as code, independent of the AI) checks an explicit approval for this exact amount and payee, a fraud score, and limits; large or unusual payments need step-up verification. Captures and refunds use deterministic `PayPal-Request-Id` keys and read PayPal before any retry, so a dropped connection never charges twice.
+3. **After you pay.** The seller marks the order shipped and the tracking number goes to PayPal (Orders v2 Add Tracking). It comes back into the briefcase as verified evidence.
+4. **When a buyer disputes.** PayPal's dispute arrives by webhook (or a manual sync). The agent matches it to the payment, drafts PayPal-shaped evidence from the briefcase (tracking as `PROOF_OF_FULFILLMENT`; the agreed items, amount and saved store terms in the notes) and recommends fighting or accepting. The seller approves the exact draft; only that draft (checked by hash) is sent with `provide-evidence`. Accepting a claim refunds money, so it goes through the same gateway as any refund.
+5. **Everything else, on the same briefcase:** an assistant you can type or talk to (read-only for money), budget and bill tracking, signed shop QR codes with replay protection, invoice-vs-purchase-order checks for business buyers, and signed buyer and seller agents that share only the fields each side is allowed to see.
 
-ContextIQ is built directly on top of PayPal's REST APIs:
+## How we use PayPal
 
-| PayPal API / Primitive | How ContextIQ Uses It |
-| :--- | :--- |
-| **Orders v2 API** (`/v2/checkout/orders`) | Creates itemized purchase units with item breakdown, shipping preferences, and binds the ContextIQ cryptographic case ID into `reference_id`. |
-| **Payment Capture API** (`/v2/checkout/orders/{id}/capture`) | Executes the final capture only after pre-purchase safety gates pass; triggers step-up verification if anomalous velocity is detected. |
-| **Refunds v2 API** (`/v2/payments/captures/{id}/refund`) | Automates policy-grounded refunds, linking refund requests directly to the verified capture ID. |
-| **Invoicing v2 API** (`/v2/invoicing/invoices`) | Generates structured B2B invoices and validates incoming invoices against signed Purchase Orders. |
-| **Disputes API** (`/v1/customer/disputes`) | Pre-empts disputes by sharing verified PayPal capture receipts with counterparties before formal chargeback escalation. |
-| **Webhooks API** (`/v1/notifications/webhooks`) | Asynchronously reconciles order status and capture events into the briefcase audit trail with signature verification. |
-| **Idempotent Retries** (`PayPal-Request-Id`) | Enforces deterministic request IDs (`order-{case_id}`, `capture-{case_id}`) across all write operations to guarantee self-healing fault tolerance. |
+Every call below is in `app/paypal/adapter.py` and runs against the real sandbox when `PAYPAL_ENV=sandbox`. The test suite runs the same code against an offline PayPal-shaped mock.
 
----
+| PayPal API | Used for | Verified in sandbox |
+| --- | --- | --- |
+| OAuth 2.0 client credentials | Server-side access token | Yes |
+| Orders v2: create, get, capture | Checkout with itemized purchase units; capture only after the gateway allows it | Yes (order `8CF670070K108980B`, capture `6MX531807D070790B`) |
+| Orders v2: Add Tracking (`/v2/checkout/orders/{id}/track`) | Seller shipment tracking attached to the capture | Yes |
+| Payments v2: refund | Seller-approved refunds, keyed per case and amount | Mock-tested |
+| Disputes v1: list, get, provide-evidence, accept-claim; sandbox require-evidence and adjudicate | Answering buyer disputes from the briefcase | List/get yes; full loop mock-tested |
+| Webhooks: signature verification, `CUSTOMER.DISPUTE.*`, `PAYMENT.CAPTURE.*` | Disputes and captures arrive as events; every event is verified with PayPal before it is applied | Webhook registered for the hosted demo |
+| PayPal JS SDK Buttons | Buyer approval in a PayPal popup | Yes |
+| PayPal's official MCP server (`@paypal/mcp`) | Runs next to ContextIQ's own MCP server in Claude Desktop (`mcp/claude_desktop_config.example.json`) | Config provided |
 
-## 📊 Empirical Evaluation & Honest Benchmark Results
+Not used yet: Invoicing v2 (adapter methods exist, not wired into the app), Payouts, Vault, Subscriptions.
 
-We believe hackathon judges value real, rigorous engineering over inflated claims. We subjected ContextIQ to an exhaustive stress test using **unseen, dynamic, and adversarial data**:
+## How we use AI
 
-### What Is Proven & Rock-Solid
-- **Cryptographic Tamper-Proofing (100% Caught)**: Bit-level modifications to terms payloads, replayed QR nonces, and contract amount forgery (\$12,500 swapped for \$12.50) were rejected by Ed25519 and SHA-256 verification with zero tolerance.
-- **B2B Invoice Inflation Protection (100% Flagged)**: Correctly caught a +11.6% invoice inflation attempt (\$700 expedited freight vs. agreed \$300) and held payment.
-- **Hard Decision Logic**:
-  - A \$1,850 cart correctly triggered a warning that cash before payday would drop to **-\$615.99**.
-  - On Day 28 of a 30-day return window with a defect claim, the decision model prioritized an immediate refund request over a slower repair.
-  - In a supplier non-payment dispute, it automatically assembled the PayPal capture ID and transaction timestamp to pre-empt formal network arbitration.
-- **Fraud Recall Under Stealth Disguise (84.0% Recall, 3.77% False Alarms)**: Tested against a 10,000-payment stream where adversarial attackers disguised 60% of their anomalous signals. Urgency scams and invoice inflations were caught at 100%, and payee detail tampering at 90%.
+| Tool | What it does in ContextIQ |
+| --- | --- |
+| Groq `openai/gpt-oss-120b` and `openai/gpt-oss-20b` | Wording answers, reading store policies and unclear questions. Never moves money, decides eligibility or reports balances. Optional: without a key, plain templates are used. |
+| LangGraph | Orchestrates understand → retrieve → experts → explain for the assistant |
+| scikit-learn | Question router, personal/business purpose, spending category, fraud (gradient boosting + isolation forest + rules), subscription detection, a decision model for refund remedies |
+| PyTorch + PEFT (LoRA) | Optional store-policy sentence model (local only; the hosted demo uses the TF-IDF model) |
+| Thompson-sampling bandit | Orders home shortcuts; changes presentation only, never permissions |
+| MCP Python SDK | ContextIQ as an MCP server: purchases, refund eligibility, budget, risk checks, dispute drafts. No tool can pay or refund. |
 
-### Honest Limitations & Real Trade-Offs
-- **Account Takeover (ATO) Degrades to 50% Under Disguise**: When an attacker operates during normal business hours and transacts an average dollar amount, tabular risk and anomaly detection alone drop to 50% recall. *Next step: Integrating client-side biometric/device fingerprinting.*
-- **Dual-Use Purchases Achieve 50% Accuracy on Hard Ambiguities**: On borderline items (e.g. an iPad Pro, late-night client Uber, studio podcast microphone), the model achieved 50% accuracy with low confidence (~61%). *Design solution: ContextIQ flags them with low confidence and provides a 1-tap reclassification button on the home screen.*
-- **Cash Flow Forecaster MAPE is 15.0%**: While sufficient to calculate safe spendable cash, unpredictable freelance income spikes cause slight under-coverage (76% vs 80% CI). It functions as a spend guardrail, not an oracle.
+**Model results (synthetic data, from `MODEL_REPORT.md`):** question router macro-F1 0.833 on unseen phrasings; fraud 91–99% of known attack types caught at 2.4% false alarms; subscriptions F1 0.997; spending forecast 18.1% error (baseline 21.3%); refund decision model 100% agreement with the written policy; adaptive home 59% tap rate vs 26% fixed order. All training and test data is synthetic, so these show the methods work, not production accuracy.
 
----
+## How we built it
 
-## 🏗️ How We Built It
+FastAPI and SQLAlchemy (SQLite), vanilla JavaScript front end, LangGraph, scikit-learn, the `cryptography` library (Ed25519 signatures for QR codes and agent messages, SHA-256 fingerprints for agreements and evidence), `webauthn` for passkeys, deployed on Render. 34 end-to-end tests run the full API in mock mode.
 
-- **Backend**: FastAPI (Python 3.14), SQLAlchemy ORM, SQLite / PostgreSQL.
-- **Agent Orchestration**: LangGraph state graph coordinating parallel specialist nodes (`price`, `budget`, `policy`, `evidence`) with unified reasoning.
-- **Machine Learning**:
-  - Gradient Boosted Decision Trees (`scikit-learn`) for tabular transaction risk.
-  - Isolation Forest for unsupervised outlier detection.
-  - Random Forest Subscription Detector (0.996 F1).
-  - Thompson Sampling Multi-Armed Bandit for dynamic purchase recommendations (+102.5% lift over static ordering).
-- **Security & Cryptography**: Ed25519 digital signatures (via `cryptography`), SHA-256 state hashing, and replay-resistant nonce tracking.
-- **LLM Reasoning**: Groq-accelerated `openai/gpt-oss-120b` for natural, grounded conversational synthesis.
-- **Frontend**: Clean vanilla JavaScript & CSS with dynamic component rendering, interactive `/console` telemetry traces, and live PayPal Sandbox integration.
+## What's real and what's simulated
 
----
+- **Real:** PayPal sandbox orders, captures, tracking and dispute calls; the security gateway; signed QR codes; the trained models.
+- **Simulated:** merchants, suppliers and their data; carrier delivery events (PayPal tracking is real, the "delivered" scan is not); a mock mode for offline demos.
+- **Demo shortcuts:** identity is a demo header (no login); the step-up code is shown on screen instead of sent to a phone (passkeys also work); the sandbox "decide" button stands in for PayPal's review team.
 
-## 🏆 What Makes ContextIQ Unique
+## Challenges we ran into
 
-Most fintech apps show you a chart of what you spent last month. ContextIQ intervenes **at the exact point of decision**:
-- It protects your cash flow before you click pay.
-- It locks in merchant terms while you pay.
-- It defends your consumer rights after you pay.
+- A capture attempted before the buyer approved on PayPal used up the one-time approval. We found it in a real sandbox run and fixed the order of checks.
+- Under the current FastAPI, our database commit ran after the response was sent, so a fast client could read stale payment state. Our in-process tests could not see it; an HTTP end-to-end run in a fresh clone did. Fixed by committing before the response.
+- Keeping AI output away from money: the model can draft, explain and recommend, but only the gateway turns an approved proposal into a PayPal call.
 
-ContextIQ proves that checkout doesn't have to be blind.
+## What's next
 
+Google A2A agent cards for the buyer and seller agents, signed spending mandates in the style of AP2 checked at capture time, Vault for repeat purchases, and Payouts for supplier payments.
+
+## Submission period
+
+This repository was created and built during the hackathon submission period.

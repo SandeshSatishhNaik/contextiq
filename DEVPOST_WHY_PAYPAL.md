@@ -1,60 +1,23 @@
-# ContextIQ — Why PayPal & Deep Integration Architecture
+# Why PayPal
 
-## The Core Thesis: Making PayPal the Smartest, Safest Payment Method on Earth
+## The thesis
 
-Payment rails are fast, but checkout remains blind to context. Traditional checkout buttons know a card number and a price, but they don't know:
-1. Whether the buyer can actually afford it given upcoming utility and supplier bills.
-2. What return or warranty policies the merchant published at the exact second of purchase.
-3. Whether the invoice matches the purchase order or is suffering from invoice inflation.
-4. What deadlines and obligations exist after the payment completes.
+An AI shopping agent is only as trustworthy as what happens after the payment. PayPal already owns that part: buyer and seller protection, shipment tracking, and a disputes process with clear evidence rules. ContextIQ is an agent built around it. It gathers evidence while the purchase happens and spends it when PayPal asks for it.
 
-**ContextIQ transforms PayPal from a passive transaction rail into an active, context-aware financial guardian.** By surrounding PayPal's robust APIs with intelligent agent orchestration, ContextIQ makes PayPal checkout radically safer for buyers and significantly lowers dispute costs for merchants.
+## Where PayPal does the work
 
----
+1. **Orders v2 and capture.** Checkout is a PayPal order with itemized purchase units and the ContextIQ case id as `reference_id`. Capture happens only after the security gateway allows it: an explicit approval of this exact amount and payee, a fraud score, and step-up for large or unusual payments.
+2. **Idempotency and self-healing.** Each case has deterministic `PayPal-Request-Id` keys (`order-…`, `capture-…`, `refund-…-amount`). After a timeout, ContextIQ reads PayPal before retrying (exponential backoff: 0.2 s, 0.4 s, 0.8 s), so one purchase is never charged twice.
+3. **Add Tracking.** When the seller ships, the tracking number is attached to the capture with `/v2/checkout/orders/{id}/track`. This is the evidence PayPal needs for an "item not received" claim.
+4. **Disputes v1.** `CUSTOMER.DISPUTE.*` webhooks (or a sync) bring the dispute in. The agent drafts `provide-evidence` from the briefcase, the seller approves the exact draft, and only that draft is sent. Accepting a claim is a refund and passes the gateway. In sandbox, `require-evidence` and `adjudicate` let a judge see the whole case resolve.
+5. **Webhooks.** Every incoming event is checked with PayPal's verify-webhook-signature before it changes anything. Repeated deliveries are dropped.
+6. **PayPal's MCP server.** `mcp/claude_desktop_config.example.json` runs `@paypal/mcp` next to ContextIQ's MCP server. PayPal's tools act on PayPal; ContextIQ adds the evidence and the judgment, and none of its tools can move money.
 
-## Technical Depth: The 7 PayPal Primitives in ContextIQ
+## What it changes
 
-ContextIQ doesn't just display a PayPal button — it implements an end-to-end payment lifecycle across 7 core PayPal APIs and protocols:
-
-### 1. PayPal Orders v2 API (`/v2/checkout/orders`)
-- **Itemized Purchase Units**: Every cart item, price breakdown, and currency total is strictly serialized with `NO_SHIPPING` or physical goods classifications.
-- **Payer Pre-Linking**: Dynamically passes the buyer's verified sandbox email (`payer.email_address`) to streamline 1-click checkout experiences.
-- **Briefcase Reference Binding**: Sets `purchase_units[0].reference_id` to the ContextIQ cryptographic case ID, creating an immutable audit trail between PayPal's ledger and ContextIQ's evidence briefcase.
-
-### 2. PayPal Payment Capture API (`/v2/checkout/orders/{id}/capture`)
-- **Pre-Capture Security Gateway**: Before calling capture, ContextIQ's multi-model AI ensemble (Gradient Boosting, Isolation Forest, and Heuristic Rules) evaluates anomaly score, velocity spikes, and session parameters.
-- **Adaptive Step-Up MFA**: If an unusual amount spike or anomalous payee is detected, payment is held until the user passes an in-app biometric/passkey or step-up challenge code.
-
-### 3. PayPal Refunds v2 API (`/v2/payments/captures/{id}/refund`)
-- **Policy-Aware Automated Refunds**: Before calling refund, ContextIQ checks whether the purchase is within the store's verified return window.
-- **Immediate Ledger Balancing**: Completed refunds instantly reverse ledger entries and close out tracking obligations.
-
-### 4. PayPal Invoicing v2 API (`/v2/invoicing/invoices`)
-- **Autonomous Supplier Invoicing**: Dispatches B2B invoices and payment reminders to counterparties and suppliers (e.g. Nova Parts).
-- **Anti-Inflation Protection**: Compares incoming PayPal invoices against original Purchase Orders (PO); holds payment if invoice exceeds PO amount.
-
-### 5. PayPal Disputes API (`/v1/customer/disputes`)
-- **Predictive Dispute Prevention**: Monitors open cases and merchant return policies. If an item arrives damaged or late, ContextIQ provides evidence-backed resolution options to settle with the merchant before escalating to a formal PayPal dispute.
-
-### 6. PayPal Webhooks API (`/v1/notifications/webhooks`)
-- **Cryptographic Signature Verification**: Validates incoming PayPal webhook payloads against certificate and transmission IDs.
-- **Event-Driven Reconciliation**: Updates order, capture, and dispute states asynchronously in real time.
-
-### 7. Self-Healing Transactions & Idempotency (`PayPal-Request-Id`)
-- Every call to PayPal Orders and Capture carries a unique, deterministic `PayPal-Request-Id` (e.g. `order-{case_id}`, `capture-{case_id}`).
-- If a network drop, timeout, or server restart occurs during capture, safe exponential-backoff retries recover the transaction without risk of double-charging.
-
----
-
-## Why ContextIQ Makes PayPal Checkout Safer
-
-| Risk Point in Standard Checkout | ContextIQ + PayPal Solution |
-| :--- | :--- |
-| **Hidden Return Exclusions** | ContextIQ scrapes, hashes, and audits store policies before checkout, warning users about hygiene or clearance exclusions. |
-| **Overdraft & Cashflow Collisions** | ContextIQ calculates "Safe Spendable Cash" by subtracting committed upcoming bills from real cash on hand before approving checkout. |
-| **Merchant Policy Bait-and-Switch** | ContextIQ stores an immutable policy snapshot in the autonomous transaction briefcase at the time of purchase as indisputable proof. |
-| **Stealth Account Takeovers & Urgency Scams** | 3-layer AI fraud detection blocks urgent scam wording, payee tampering, and foreign IP mismatches with step-up MFA. |
-| **Forgotten Return Deadlines** | Post-purchase, ContextIQ automatically sets temporal countdowns for return, replacement, and warranty coverage right on the home dashboard. |
-
-ContextIQ turns PayPal checkout into an intelligent, protected financial contract.
-
+| Without ContextIQ | With ContextIQ on PayPal |
+| --- | --- |
+| The seller rebuilds a dispute from emails and memory, under a deadline | The evidence pack is drafted from what PayPal and the buyer already confirmed |
+| Store terms change after the sale | The terms seen at checkout are saved with the purchase |
+| A dropped connection during capture can lead to a second charge | Retries reuse the same request id and check PayPal first |
+| An AI agent with payment access can be talked into spending | The agent only proposes; the gateway and a person approve |

@@ -1,6 +1,6 @@
 # ContextIQ — model report
 
-Every model below was built, trained, evaluated and modified over six rounds. Each was chosen by cross-validation on training data only, then scored once on a held-out test set built to be the hard case, and compared with a simple baseline. **All data is synthetic** (seeded, reproducible), so treat these as evidence the methods work, not as production accuracy.
+Every model below was built, trained, evaluated and modified over nine rounds. Each was chosen by cross-validation on training data only, then scored once on a held-out test set built to be the hard case, and compared with a simple baseline. **All data is synthetic** (seeded, reproducible), so treat these as evidence the methods work, not as production accuracy.
 
 Experiments run: **53** · training time: 453.0 s on CPU.
 
