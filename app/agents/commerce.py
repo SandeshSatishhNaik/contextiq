@@ -122,6 +122,11 @@ def complete_payment(db: Session, user_id: str, case_id: str, approval_token: st
     case = db.get(Case, case_id)
     if not case:
         return {"ok": False, "error": "case not found"}
+    # Read-only check first: a capture attempted before the buyer approves on PayPal must not
+    # consume the one-time approval token.
+    state = payments.sync_order_state(db, case)
+    if state["order_status"] not in ("APPROVED", "COMPLETED"):
+        return {"ok": False, "error": f"buyer has not approved the order on PayPal yet ({state['order_status']})"}
     if step_up_code:
         gateway.pass_step_up(db, approval_token, step_up_code)
     risk = ctx_agent.assess_risk(db, user_id, case.merchant, case.amount, **(signals or {}))
@@ -129,9 +134,6 @@ def complete_payment(db: Session, user_id: str, case_id: str, approval_token: st
     if not verdict.allowed:
         return {"ok": False, "gateway": verdict.decision, "reasons": verdict.reasons,
                 "step_up_code_demo": verdict.step_up_code, "risk": risk}
-    state = payments.sync_order_state(db, case)
-    if state["order_status"] not in ("APPROVED", "COMPLETED"):
-        return {"ok": False, "error": f"buyer has not approved the order on PayPal yet ({state['order_status']})"}
     result = payments.capture_safely(db, case)
     if result["ok"]:
         _after_capture(db, case, user_id)
