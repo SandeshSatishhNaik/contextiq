@@ -1,6 +1,8 @@
 """Loads trained specialist models once and exposes small prediction helpers."""
 from __future__ import annotations
 
+import re
+
 from functools import cache
 
 import joblib
@@ -28,6 +30,38 @@ def route_intent(text: str) -> tuple[str, float]:
     return str(m.classes_[i]), float(proba[i])
 
 
+# Well-known merchants and unambiguous words beat the category model, which was trained on synthetic
+# merchant names and is weak on real brands. Order matters: the first match wins ("uber eats" is dining).
+CATEGORY_KEYWORDS: list[tuple[str, re.Pattern]] = [(cat, re.compile(pat, re.I)) for cat, pat in [
+    ("dining", r"\b(uber ?eats|doordash|grubhub|restaurant|cafe|caf[eé]|coffee|starbucks|dinner|lunch|breakfast|"
+               r"chipotle|mcdonald'?s|pizza|burger|takeaway|takeout|bar & grill)\b"),
+    ("groceries", r"\b(grocer(y|ies)|supermarket|whole foods|trader joe'?s|safeway|kroger|aldi|costco|"
+                  r"weekly shop|instacart)\b"),
+    ("transport", r"\b(uber|lyft|taxi|cab|ride home|airline|flight|airfare|train|metro|subway|bus pass|parking|"
+                  r"toll|fuel|petrol|gas station|shell|chevron)\b"),
+    ("utilities", r"\b(electric(ity)?|power bill|water bill|gas bill|utility|utilities|internet|broadband|"
+                  r"comcast|xfinity|pg&e|pacific gas|phone bill|mobile plan)\b"),
+    ("entertainment", r"\b(netflix|spotify|hulu|disney\+?|hbo|cinema|movie|concert|tickets?|steam|playstation|"
+                      r"xbox|nintendo|streaming)\b"),
+    ("health", r"\b(pharmacy|cvs|walgreens|prescription|doctor|dentist|dental|clinic|hospital|gym|fitness)\b"),
+    ("logistics", r"\b(fedex|ups|dhl|usps|courier|freight|shipping|postage|delivery fee)\b"),
+    ("software", r"\b(aws|amazon web services|azure|google cloud|github|gitlab|adobe|slack|notion|atlassian|"
+                 r"saas|cloud hosting|web hosting|domain renewal|software licen[cs]e)\b"),
+    ("supplies", r"\b(office depot|staples|toner|printer paper|stationery|office supplies)\b"),
+    ("electronics", r"\b(best buy|apple store|laptop|smartphone|headphones|earbuds|camera|monitor|keyboard|"
+                    r"electronics)\b"),
+    ("clothing", r"\b(zara|h&m|uniqlo|nike|adidas|clothing|apparel|shoes|sneakers|jacket)\b"),
+    ("inventory", r"\b(wholesale|inventory|stock purchase|resale stock|sensor boards?|parts order)\b"),
+    ("services", r"\b(consulting|cleaning service|plumber|electrician|repair service|legal fees?|accountant|"
+                 r"bookkeeping)\b"),
+]]
+CATEGORY_MIN_CONFIDENCE = 0.5  # below this, and with no keyword, the category is left for the user to set
+
+
+def category_from_keywords(text: str) -> str | None:
+    return next((cat for cat, rx in CATEGORY_KEYWORDS if rx.search(text)), None)
+
+
 def classify_transaction(payee: str, description: str, channel: str, hour: int, weekday: int, amount: float,
                          business_owner: bool) -> dict:
     X = pd.DataFrame([{"text": f"{payee} | {description} | {channel}", "hour": hour, "weekday": weekday,
@@ -40,6 +74,15 @@ def classify_transaction(payee: str, description: str, channel: str, hour: int, 
         i = int(np.argmax(p))
         out[target] = str(m.classes_[i])
         out[f"{target}_confidence"] = round(float(p[i]), 3)
+    out["category_model_guess"] = out["category"]
+    kw = category_from_keywords(f"{payee} {description}")
+    if kw:
+        out["category"], out["category_source"] = kw, "keyword"
+        out["category_confidence"] = max(out["category_confidence"], 0.9) if kw == out["category_model_guess"] else 0.9
+    elif out["category_confidence"] < CATEGORY_MIN_CONFIDENCE:
+        out["category"], out["category_source"] = "uncategorized", "unsure"
+    else:
+        out["category_source"] = "model"
     return out
 
 

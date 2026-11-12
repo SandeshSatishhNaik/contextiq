@@ -486,3 +486,13 @@ def test_dispute_readiness_before_any_dispute():
 def test_payment_status_question_is_not_treated_as_cart_advice():
     r = c.post("/api/chat", json={"message": "did my payment to brightmart go through"}, headers=H).json()
     assert r["intent"] != "cart_item", r["intent"]
+
+
+def test_category_keywords_and_confidence_gate():
+    from app.ml import runtime as R
+
+    assert R.classify_transaction("Uber", "ride home", "online", 23, 4, 38.0, False)["category"] == "transport"
+    assert R.classify_transaction("Uber Eats", "dinner order", "online", 20, 4, 28.0, False)["category"] == "dining"
+    assert R.classify_transaction("Pacific Gas & Electric", "electricity bill", "online", 9, 1, 142.0, False)["category"] == "utilities"
+    unsure = R.classify_transaction("Etsy", "handmade gift", "online", 21, 4, 36.0, False)
+    assert unsure["category"] == "uncategorized" and unsure["category_source"] == "unsure"  # no silent wrong label
