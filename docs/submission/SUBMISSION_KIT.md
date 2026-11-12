@@ -24,7 +24,7 @@ Alternatives, if you want a different tone:
 ## Links
 - **Try it (guided judge tour):** https://contextiq-0ihy.onrender.com/?demo=1
 - **Code (Apache-2.0):** https://github.com/SandeshSatishhNaik/contextiq
-- **Demo video:** *(paste your YouTube link)*
+- **Demo video (YouTube, public, 2:54):** https://youtu.be/cGJgYqDmotg
 - **Test credentials** (Devpost field, not in the repo): the login of a **dedicated PayPal sandbox buyer account** you create for judges at developer.paypal.com → Sandbox → Accounts. Add one line: "Sandbox only: test money, no real payments."
 
 ---
@@ -146,7 +146,7 @@ Images 07 and 08 are frames from the demo video. All others are screenshots of t
 | Open-source license visible in the repo's About section | ✅ Apache-2.0, detected by GitHub |
 | Demo video under 3 minutes | ✅ 2:54 (`ContextIQ_demo.mp4`) |
 | Video shows the project working on its target device | ✅ The web app in a desktop browser, on the real PayPal sandbox |
-| Video on YouTube, public, linked on the form | ⬜ **Your step:** upload as Public, "Not made for kids", and paste the link |
+| Video on YouTube, public, linked on the form | ✅ https://youtu.be/cGJgYqDmotg (Public, not made for kids); paste it on the form |
 | No third-party trademarks or copyrighted music without permission | ✅ No music. Only PayPal's own sandbox UI (the hackathon sponsor), the PayPal button from PayPal's SDK, and a Mastercard statistic cited as text. No other brands' logos. |
 | Test credentials for judges | ⬜ **Your step:** add a dedicated sandbox buyer login in the Devpost field |
 | Chrome "Dangerous site" warning | ⬜ **Your step:** finish the Search Console review request (verification file is live) |

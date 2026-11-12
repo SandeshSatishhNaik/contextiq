@@ -12,6 +12,7 @@ Built for the PayPal AI Hackathon (Devpost) by team Avoflare. Licensed under Apa
   top tracks the real state of your purchase and takes you to each next step, switching between buyer and
   seller for you. It runs on Render's free tier, so the first load after a quiet spell can take about a minute,
   and demo data may be re-seeded when the service wakes.
+- **Demo video (2:54):** https://youtu.be/cGJgYqDmotg
 - **PayPal sandbox buyer login:** in the Devpost submission's test-credentials field (not in this repo).
 - **The five steps:**
   1. **Pay with PayPal** as the buyer: approve in the PayPal popup. Capture only happens if the buyer's signed

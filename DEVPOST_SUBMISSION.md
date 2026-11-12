@@ -2,7 +2,7 @@
 
 > Every PayPal payment gets an evidence briefcase. When a buyer opens a PayPal dispute, ContextIQ answers it from that briefcase, and a person approves before anything is sent.
 
-**Try it:** https://contextiq-0ihy.onrender.com/?demo=1 (guided judge tour; free hosting, so the first load can take about a minute) · **Code:** https://github.com/SandeshSatishhNaik/contextiq (Apache-2.0) · **Team:** Avoflare
+**Video:** https://youtu.be/cGJgYqDmotg · **Try it:** https://contextiq-0ihy.onrender.com/?demo=1 (guided judge tour; free hosting, so the first load can take about a minute) · **Code:** https://github.com/SandeshSatishhNaik/contextiq (Apache-2.0) · **Team:** Avoflare
 
 ---
 
