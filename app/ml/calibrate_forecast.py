@@ -32,7 +32,7 @@ def main(write: bool = False) -> dict:
     for u, grp in df[df.day >= 150].groupby("user"):
         fc = g.forecast_user(u, 30, 150 % 7)
         rows.append((fc["p10"], fc["p50"], fc["p90"], grp.spend.sum()))
-    p10, p50, p90, actual = map(np.array, zip(*rows))
+    p10, p50, p90, actual = map(np.array, zip(*rows, strict=True))
 
     def coverage(k: float) -> float:
         return float(((np.maximum(0, p50 - k * (p50 - p10)) <= actual) & (actual <= p50 + k * (p90 - p50))).mean())
