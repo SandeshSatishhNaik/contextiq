@@ -108,6 +108,20 @@ ASK_BELOW = 0.20
 FRAUD_SAFETY_RE = re.compile(r"\b(never made|didn'?t authorize|did not authorize|not me|unauthorized|stolen|hacked|fake charge|without (my )?consent)\b", re.I)
 
 
+# Out-of-scope requests: the router has no "other" topic, so a joke or a weather question was forced into the
+# nearest money topic. Only explicit off-topic markers count: a generic "low confidence and no money word" test
+# also turned away 8% of real customer questions ("is accidental damage covered"), which is worse.
+OFF_TOPIC_RE = re.compile(r"\b(jokes?|poem|story|song|sing (me|a)|lyrics|weather|cricket|football|soccer|nba|match score|"
+                          r"who won|recipe|translate|capital of|celebrity|president|movie to watch|"
+                          r"recommend a (movie|book|show)|how are you|what('?s| is) your name|"
+                          r"\d+\s*[-+*/x]\s*\d+\s*$)", re.I)
+PAYMENT_WORDS_RE = re.compile(r"\b(price|refund|bill|invoice|payment|paypal|subscription|charge|order|purchase|budget)\b", re.I)
+
+
+def off_topic(message: str, router_confidence: float = 0.0) -> bool:
+    return bool(OFF_TOPIC_RE.search(message)) and not PAYMENT_WORDS_RE.search(message)
+
+
 def understand(state: S) -> S:
     """Trained router first; keyword rules only when it is unsure; then GenAI; then ask the user."""
     msg = state["message"]
@@ -451,6 +465,16 @@ GRAPH = _build()
 def handle(db: Session, user_id: str, message: str, case_id: str | None = None, voice: bool = False) -> dict:
     t0 = time.time()
     tokens_before = llm.METER["input_tokens"] + llm.METER["output_tokens"]
+    if not FRAUD_SAFETY_RE.search(message):
+        top, p = runtime.route_intent(message)
+        if off_topic(message, p):
+            return {"answer": ("That's outside what I can help with. I'm ContextIQ, your payments assistant: ask me "
+                               "about a purchase, a refund, your budget, bills, an invoice or a payment that looks wrong."),
+                    "intent": "off_topic", "topic": "something outside payments", "route_source": "out of scope",
+                    "confidence": round(1 - p, 3), "case_id": None, "experts": [], "reasoning": None, "proposal": None,
+                    "findings": [], "decision": None, "resolutions": [], "evidence_rounds": 0,
+                    "trace": [f"out of scope (router's best guess {top} at {p:.2f}, no payments topic in the message)"],
+                    "latency_ms": round((time.time() - t0) * 1000, 1), "llm_tokens": 0, "llm": llm.provider_name()}
     out = GRAPH.invoke({"db": db, "user_id": user_id, "message": message, "case_id": case_id, "trace": [],
                         "findings": [], "rounds": 0, "requested": [], "resolutions": [], "decision": None,
                         "reasoning": {"confidence": 1.0, "level": "high", "unknowns": [], "contradictions": [],
