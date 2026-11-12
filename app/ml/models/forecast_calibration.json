@@ -1,0 +1,8 @@
+{
+  "calibration_seed": 5151,
+  "users": 300,
+  "target_coverage": 0.8,
+  "coverage_before": 0.68,
+  "range_scale": 1.35,
+  "coverage_after": 0.813
+}

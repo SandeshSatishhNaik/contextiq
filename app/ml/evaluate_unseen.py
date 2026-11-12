@@ -110,7 +110,7 @@ def forecast() -> dict:
     f = joblib.load(MODEL_DIR / "forecaster.joblib")
     from .forecast import CashFlowForecaster
 
-    g = CashFlowForecaster(profile=f.profile, shrink=f.shrink).fit(df[df.day < 150])
+    g = CashFlowForecaster(profile=f.profile, shrink=f.shrink, range_scale=getattr(f, "range_scale", 1.0)).fit(df[df.day < 150])
     errs, cov = [], 0
     for u, grp in df[df.day >= 150].groupby("user"):
         fc = g.forecast_user(u, 30, 150 % 7)

@@ -6,10 +6,14 @@ import pandas as pd
 
 
 class CashFlowForecaster:
-    def __init__(self, n_sims: int = 400, seed: int = 0, profile: str = "weekday", shrink: float = 0.0):
+    def __init__(self, n_sims: int = 400, seed: int = 0, profile: str = "weekday", shrink: float = 0.0,
+                 range_scale: float = 1.0):
         """profile: 'weekday' learns a per-weekday level, 'flat' a single daily level.
-        shrink: pull each user's profile toward the population profile (helps users with little history)."""
+        shrink: pull each user's profile toward the population profile (helps users with little history).
+        range_scale: widens the p10-p90 range around the median. Days are resampled independently, which
+        misses streaky weeks and payday spikes, so the raw range is too narrow; calibrate_forecast.py sets it."""
         self.n_sims, self.seed, self.profile, self.shrink = n_sims, seed, profile, shrink
+        self.range_scale = range_scale
         self.profiles: dict[str, np.ndarray] = {}
         self.residuals: dict[str, np.ndarray] = {}
         self.global_profile = np.ones(7) * 30.0
@@ -46,6 +50,7 @@ class CashFlowForecaster:
         wds = (start_weekday + np.arange(horizon)) % 7
         base = prof[wds]
         sims = np.maximum(0, base + rng.choice(resid, size=(self.n_sims, horizon))).sum(axis=1)
-        return {"expected": float(base.sum()), "p10": float(np.quantile(sims, 0.1)),
-                "p50": float(np.quantile(sims, 0.5)), "p90": float(np.quantile(sims, 0.9)), "horizon_days": horizon,
-                "personalised": user in self.profiles}
+        p10, p50, p90 = (float(np.quantile(sims, q)) for q in (0.1, 0.5, 0.9))
+        k = getattr(self, "range_scale", 1.0)  # older pickles have no attribute
+        return {"expected": float(base.sum()), "p10": max(0.0, p50 - k * (p50 - p10)), "p50": p50,
+                "p90": p50 + k * (p90 - p50), "horizon_days": horizon, "personalised": user in self.profiles}
