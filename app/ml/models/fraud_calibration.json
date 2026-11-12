@@ -1,0 +1,17 @@
+{
+  "calibration_seed": 4242,
+  "target_false_alarm": 0.025,
+  "rules_only_false_alarm": 0.014,
+  "before": {
+    "supervised": 0.1687,
+    "anomaly": 0.8416,
+    "false_alarm": 0.0308,
+    "caught": 0.885
+  },
+  "after": {
+    "supervised": 0.3007,
+    "anomaly": 0.845,
+    "false_alarm": 0.0247,
+    "caught": 0.8517
+  }
+}

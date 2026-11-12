@@ -95,7 +95,9 @@ def fraud_score(features: dict) -> dict:
     urgent = features.get("urgency_score", 0) >= 0.5
     new_or_changed = bool(features.get("new_payee")) or bool(features.get("payee_changed_recently"))
     over_po = features.get("invoice_po_ratio", 1.0) > 1.05
-    urgent_payment_signal = (urgent and new_or_changed) or (features.get("urgency_score", 0) > 0.7) or (urgent and features.get("amount_z", 0) > 1.0)
+    # (an "urgent wording + slightly large amount" clause was dropped: on a calibration stream it flagged 0.8% of
+    # normal payments and caught none of the training attack types; see app/ml/calibrate_fraud.py)
+    urgent_payment_signal = (urgent and new_or_changed) or (features.get("urgency_score", 0) > 0.7)
     rule = min(1.0, 0.85 * urgent_payment_signal + 0.5 * bool(features.get("payee_changed_recently")))
     t = bundle["thresholds"]
     fired = {"learned model": sup >= t["supervised"], "anomaly detector": anom >= t["anomaly"],
