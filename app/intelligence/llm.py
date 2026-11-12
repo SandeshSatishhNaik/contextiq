@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 
 import httpx
@@ -98,16 +99,24 @@ INJECTION_MARKERS = ("ignore previous", "ignore all previous", "system prompt", 
                      "assistant:", "<|", "approve this refund", "transfer funds", "ai assistant:")
 
 
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
+
+
 def sanitize_untrusted(text: str, limit: int = 6000) -> tuple[str, list[str]]:
-    """Merchant pages and invoices are untrusted: strip likely prompt-injection lines and flag them."""
-    flagged, kept = [], []
+    """Merchant pages and invoices are untrusted: strip likely prompt-injection sentences and flag them.
+
+    Works sentence by sentence, so an injected sentence can't take the store's real terms on the same
+    line down with it."""
+    flagged, kept_lines = [], []
     for line in text.splitlines():
-        low = line.lower()
-        if any(m in low for m in INJECTION_MARKERS):
-            flagged.append(line.strip()[:120])
-        else:
-            kept.append(line)
-    return "\n".join(kept)[:limit], flagged
+        kept = []
+        for sentence in _SENTENCE_END.split(line):
+            if any(m in sentence.lower() for m in INJECTION_MARKERS):
+                flagged.append(sentence.strip()[:120])
+            else:
+                kept.append(sentence)
+        kept_lines.append(" ".join(kept))
+    return "\n".join(kept_lines)[:limit], flagged
 
 
 EXPLAIN_SYSTEM = ("You rewrite a financial assistant's answer for an everyday customer. Use 2-3 short, warm, plain "
