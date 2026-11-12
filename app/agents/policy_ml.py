@@ -53,7 +53,8 @@ def _duration_days(s: str) -> int | None:
     if not m:
         return None
     n = int(m.group(1)) if m.group(1).isdigit() else WORDS[m.group(1).lower()]
-    return n * {"day": 1, "month": 30, "year": 365}[m.group(3).lower()]
+    unit = m.group(3).lower()
+    return n if unit == "day" else n * 365 if unit == "year" else round(n * 365 / 12)  # 12 months = 365 days
 
 
 def extract(text: str) -> dict:

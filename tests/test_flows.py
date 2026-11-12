@@ -480,3 +480,9 @@ def test_dispute_readiness_before_any_dispute():
     c.post(f"/api/cases/{cid}/ship", json={}, headers=S)
     after = c.get(f"/api/cases/{cid}/dispute-readiness", headers=S).json()
     assert after["have"] == after["of"]
+
+
+
+def test_payment_status_question_is_not_treated_as_cart_advice():
+    r = c.post("/api/chat", json={"message": "did my payment to brightmart go through"}, headers=H).json()
+    assert r["intent"] != "cart_item", r["intent"]

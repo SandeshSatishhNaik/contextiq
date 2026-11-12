@@ -12,6 +12,7 @@ Without a key every caller falls back to deterministic code, so the app always r
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 
@@ -19,6 +20,7 @@ import httpx
 
 from ..config import settings
 
+log = logging.getLogger("contextiq.llm")
 METER = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "latency_ms": 0.0, "errors": 0}
 
 PROVIDER = os.getenv("LLM_PROVIDER", "groq" if os.getenv("GROQ_API_KEY") else "anthropic").lower()
@@ -46,6 +48,10 @@ def complete(system: str, user: str, *, large: bool = False, max_tokens: int = 4
         if PROVIDER == "groq":
             body = {"model": GROQ_LARGE if large else GROQ_SMALL, "max_tokens": max_tokens, "temperature": 0.1,
                     "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
+            if "gpt-oss" in body["model"]:
+                # gpt-oss reasons before answering; at default effort the reasoning alone can use the whole
+                # max_tokens budget and the visible answer comes back empty or cut mid-sentence.
+                body["reasoning_effort"] = "low"
             if want_json:
                 body["response_format"] = {"type": "json_object"}
             r = httpx.post("https://api.groq.com/openai/v1/chat/completions",
@@ -53,7 +59,10 @@ def complete(system: str, user: str, *, large: bool = False, max_tokens: int = 4
                            json=body, timeout=30)
             r.raise_for_status()
             data = r.json()
-            text = data["choices"][0]["message"]["content"] or ""
+            choice = data["choices"][0]
+            text = choice["message"]["content"] or ""
+            if not text.strip() or choice.get("finish_reason") == "length":
+                raise ValueError(f"incomplete answer (finish_reason={choice.get('finish_reason')})")
             usage = data.get("usage", {})
             METER["input_tokens"] += usage.get("prompt_tokens", 0)
             METER["output_tokens"] += usage.get("completion_tokens", 0)
@@ -70,8 +79,9 @@ def complete(system: str, user: str, *, large: bool = False, max_tokens: int = 4
             text = "".join(b.get("text", "") for b in data.get("content", []))
             METER["input_tokens"] += data.get("usage", {}).get("input_tokens", 0)
             METER["output_tokens"] += data.get("usage", {}).get("output_tokens", 0)
-    except Exception:  # noqa: BLE001 — optional layer; fall back to deterministic code
+    except Exception as exc:  # noqa: BLE001 — optional layer; fall back to deterministic code
         METER["errors"] += 1
+        log.warning("LLM call failed, using the deterministic fallback: %s", str(exc)[:200])
         return None
     METER["calls"] += 1
     METER["latency_ms"] += (time.time() - t0) * 1000

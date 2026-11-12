@@ -1,1 +1,1 @@
-TF-IDF + logistic regression (no neural net)
+Ensemble: TF-IDF + logistic regression (weight 0.7) with the LoRA policy model (weight 0.3) when PyTorch is installed; TF-IDF alone otherwise (e.g. the hosted demo)

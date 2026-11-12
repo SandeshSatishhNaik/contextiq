@@ -44,6 +44,9 @@ HELP = re.compile(r"\b(what can you do|help me|how does this work|what do you do
 AFFORD = re.compile(r"\b(afford|can i (buy|get|purchase)|should i (buy|get|wait)|is it worth|buy (it|them|the)|worth buying|go for it)\b", re.I)
 PRICE = re.compile(r"\b(price|cheaper|drop(ped)?|deal|discount|lowest|on sale|cost)\b", re.I)
 RETURN = re.compile(r"\b(return|refund|money back|replace(ment)?|swap|exchange|warranty|stopped working|broken|defective|defect)\b", re.I)
+# Questions about a payment already made belong to the purchase, not to the shopping cart.
+STATUS = re.compile(r"\b(go(ne)? through|went through|did .* (pay|charge)|been (paid|charged)|payment status|receipt|"
+                    r"never (got|received)|was i charged|refund(ed)? yet)\b", re.I)
 PRONOUN = re.compile(r"\b(it|them|that|those|this one|the same)\b", re.I)
 STOP = {"the", "and", "for", "with", "can", "buy", "get", "my", "a", "an", "should", "would", "like", "know", "that", "this",
         "what", "about", "afford", "price", "is", "it", "i", "to", "me", "you", "now", "still", "return"}
@@ -249,7 +252,8 @@ def chat(db: Session, uid: str, message: str, case_id: str | None = None) -> dic
         if not ent and (PRONOUN.search(msg) or PRICE.search(msg) or AFFORD.search(msg) or RETURN.search(msg)) \
                 and len(_words(msg) - {"did", "does", "drop", "dropp", "will", "how", "much", "any", "yet", "has", "been"}) == 0:
             ent = LAST_ENTITY.get(uid)  # a follow-up about the thing we were just talking about
-        if ent and ent["type"] == "cart" and (AFFORD.search(msg) or PRICE.search(msg) or not RETURN.search(msg)):
+        if ent and ent["type"] == "cart" and (AFFORD.search(msg) or PRICE.search(msg)
+                                              or not (RETURN.search(msg) or STATUS.search(msg))):
             it = db.get(CartItem, ent["id"])
             f = _cart_facts(db, uid, it, now)
             text = _price_text(f) if PRICE.search(msg) and not AFFORD.search(msg) else _afford_text(f)
