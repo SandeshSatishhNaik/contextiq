@@ -49,7 +49,7 @@ Not used yet: Invoicing v2 (adapter methods exist, not wired into the app), Payo
 | Thompson-sampling bandit | Orders home shortcuts; changes presentation only, never permissions |
 | MCP Python SDK | ContextIQ as an MCP server: purchases, refund eligibility, budget, risk checks, dispute drafts. No tool can pay or refund. |
 
-**Model results (synthetic data, from `MODEL_REPORT.md`):** question router macro-F1 0.833 on unseen phrasings; fraud 91–99% of known attack types caught at 2.4% false alarms; subscriptions F1 0.997; spending forecast 18.1% error (baseline 21.3%); refund decision model 100% agreement with the written policy; adaptive home 59% tap rate vs 26% fixed order. All training and test data is synthetic, so these show the methods work, not production accuracy.
+**Model results (synthetic data; held-out test with a fresh seed):** question router 88–89% on 100 unseen realistic messages; fraud 94% of attacks caught on a realistic stream with 1% fraud, at 2.7% false alarms (cut-offs re-calibrated on separate data); subscriptions F1 0.996; spending forecast 19.7% error over 30 days, with its 80% range holding the real total 83% of the time; refund decision model 100% agreement with the written policy; adaptive home 59% tap rate vs 28% fixed order. The spending-category model alone was 60% right on real brand names, so well-known merchants are matched by keyword first and unsure categories are left for the user (0 wrong on 22 fresh merchants). Off-topic questions get a scope reply (12/12 caught, 0/200 real questions turned away). All training and test data is synthetic, so these show the methods work, not production accuracy.
 
 ## How we built it
 
