@@ -31,27 +31,29 @@ Everything needed to submit **ContextIQ** to the PayPal AI Hackathon on Devpost.
 11. **Team:** make sure every Avoflare teammate has **accepted** their Devpost invite before you submit.
 12. Check the preview, then **Submit**.
 
-## Before submitting: create the judges' sandbox buyer (about 2 minutes)
-A person has to do this: it's account creation on PayPal's developer site.
-1. Sign in at https://developer.paypal.com with the account that owns the ContextIQ sandbox app.
-2. Go to **Testing Tools → Sandbox Accounts → Create account**.
-3. Choose **Personal (buyer)**, country **United States**. Open **Advanced options** to set:
-   - an email, for example `judges-contextiq@personal.example.com`;
-   - a password you're happy to share with judges;
-   - a PayPal balance of about $5,000.
-4. Click **Create**. Test it once: open the hosted demo → Cart → Buy → PayPal button → log in with this account → approve.
-5. Paste this into Devpost's test-credentials field, with your values filled in:
+## Before submitting: the judges' sandbox buyer (about 1 minute)
+Use the **existing sandbox buyer** the demo already uses:
+
+- **Email:** `sb-hfln853812063@personal.example.com`. The app pre-fills it in the PayPal popup, and the real sandbox dispute ran on this account.
+- **Password:** look it up at https://developer.paypal.com → **Testing Tools → Sandbox Accounts** → this account → **⋮ → View/Edit account**.
+  - Judges will see it, so it must not be a password you use anywhere real.
+  - If you chose it yourself and it matches a real password, change it on the same screen first.
+- **Quick check:** on the hosted demo, go to Cart → Buy → PayPal button, log in with it, and approve.
+
+Then paste this into Devpost's test-credentials field, with the password filled in:
 
 ```
 Hosted demo (guided tour): https://contextiq-0ihy.onrender.com/?demo=1
 PayPal SANDBOX buyer (test money only, no real payments):
-  email:    <sandbox buyer email>
+  email:    sb-hfln853812063@personal.example.com
   password: <sandbox buyer password>
 How to test: follow the 5-step tour bar at the top. Use the Buyer/Seller switch in the top bar.
 Step 3 (dispute): log in with the same sandbox buyer at https://www.sandbox.paypal.com,
 open the payment, Report a problem > Item not received. The dispute reaches ContextIQ in a few minutes.
 The site is on a free host: the first load after a quiet spell can take about a minute.
 ```
+
+(If you'd rather not share this account, create a fresh **Personal (buyer)** account on the same Sandbox Accounts page and use that instead.)
 
 Don't put this password in the GitHub repo or the README.
 
@@ -72,7 +74,7 @@ Google Safe Browsing flagged the new demo URL, most likely because of PayPal bra
 | Open-source license in the repo's About section | ✅ Apache-2.0 |
 | Video under 3 minutes, public on YouTube, working project | ✅ 2:54, public |
 | No unlicensed trademarks or music | ✅ no music; only the sponsor's own sandbox UI |
-| Test credentials for judges | ⬜ create the sandbox buyer (above) |
+| Test credentials for judges | ⬜ paste the existing sandbox buyer's login (above) |
 
 ## After submitting
 - Change nothing until Dec 21: don't push to the repo, and don't redeploy the demo.
